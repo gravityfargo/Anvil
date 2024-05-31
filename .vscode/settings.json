@@ -1,0 +1,8 @@
+{
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "tasksStatusbar.taskLabelFilter": "[0-9]+.+",
+    "autoHide.autoHidePanel": false,
+    "autoHide.autoHideSideBar": false,
+    "autoHide.autoHideAuxiliaryBar": false,
+}

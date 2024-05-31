@@ -1,0 +1,28 @@
+selected_host: peddle-cluster-worker0
+selected_project: Peddle-Configs
+projects:
+  Peddle-Configs:
+    groups:
+      auth:
+        hosts:
+          peddle-cluster-auth: null
+      login:
+        hosts:
+          peddle-cluster-login: null
+      management:
+        hosts:
+          peddle-cluster-mgmt: null
+      storage:
+        hosts:
+          peddle-cluster-storage0: null
+      workers:
+        hosts:
+          peddle-cluster-worker0: null
+    hosts:
+      - peddle-cluster-storage0
+      - peddle-cluster-worker0
+      - peddle-cluster-mgmt
+      - peddle-cluster-login
+      - peddle-cluster-auth
+    inventory_file: repo/Peddle-Configs/inventory.yml
+    url: git@git-ssh.gravityfargo.dev:gravityfargo/Peddle-Configs.git

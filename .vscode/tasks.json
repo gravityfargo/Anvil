@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true,
+    },
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "0. clean",
+            "command": "sh scripts.sh clean",
+        },
+        {
+            "type": "shell",
+            "label": "3. makemigrations",
+            "command": "sh scripts.sh makemigrations",
+        },
+        {
+            "type": "shell",
+            "label": "4. migrate",
+            "command": "sh scripts.sh migrate",
+        },
+        {
+            "type": "shell",
+            "label": "5. runserver",
+            "command": "python anvil/manage.py runserver",
+        },
+        {
+            "type": "shell",
+            "label": "6. collect static",
+            "command": "sh scripts.sh createsuperuser",
+        },
+        {
+            "type": "shell",
+            "label": "7. loaddata",
+            "command": "sh scripts.sh load ",
+        },
+    ]
+}
