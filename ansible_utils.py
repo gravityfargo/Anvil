@@ -1,39 +1,52 @@
 from ansible_runner import *
+import sys
 from os import path, getcwd
-from cli.file_utils import YamlManager
-from config.vars import ANVIL_DATA_FILE
+from cli.file_utils import (
+    YamlManager,
+    build_host_parent_path,
+    return_hosts_parent_group,
+    update_tree_file,
+)
+from config.vars import AnvilData
 
 
-def ping(hosts_file, host_name):
-    rc = RunnerConfig(
-        private_data_dir="project",
-        inventory=path.join(getcwd(), hosts_file),
+def ping(ad: AnvilData, host_pattern: str):
+    r = run(
+        private_data_dir=ad.anvil_temp_dir,
+        inventory=ad.sp_inventory_file_path,
+        host_pattern=host_pattern,
         module="ping",
-        host_pattern=host_name,
     )
-    rc.prepare()
-    r = Runner(config=rc)
-    r.run()
 
 
-# r = ansible_runner.run(
-#     inventory='inventory.yml',
-#     playbook='playbook.yml',
-#     host_pattern='all',
-#     extravars={
-#         'ansible_user': 'user',
-#         'ansible_password': 'password'
-#     }
-# )
-
-
-def demo():
-    # get list of changed ansible configuration values
-    out, err = get_ansible_config(
-        action="dump", config_file="/home/demo/ansible.cfg", only_changed=True
+def playbook(ad: AnvilData, sender: str, host_pattern: str, target: str):
+    host_parent_path = build_host_parent_path(ad, host_pattern)
+    extra_vars = {
+        "arg_host": host_pattern,
+        "arg_src": target,
+        "arg_dest": host_parent_path,
+    }
+    r = run(
+        private_data_dir=ad.anvil_temp_dir,
+        inventory=ad.sp_inventory_file_path,
+        playbook=ad.playbooks[sender],
+        extravars=extra_vars,
     )
-    print("out: {}".format(out))
-    print("err: {}".format(err))
+    if r.status == "successful":
+        parent = return_hosts_parent_group(ad, host_pattern)
+        update_tree_file(ad)
+        return True
+    else:
+        return False
 
 
-demo()
+def ad_hoc_shell(ad: AnvilData, host_pattern: str, command: str):
+    r = run(
+        private_data_dir=ad.anvil_temp_dir,
+        host_pattern=host_pattern,
+        module="shell",
+        module_args="whoami",
+    )
+    for event in r.events:
+        print(event)
+    # print(r.stats)

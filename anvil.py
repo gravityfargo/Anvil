@@ -19,7 +19,6 @@ def main(ad):
 
     while True:
         try:
-            print("\n")
             command = input("anvil> ")
 
             if not parser_module.user_input_parser(ad, command):
@@ -54,8 +53,10 @@ if __name__ == "__main__":
     cprint("-------------------------------------------------", "purple")
 
     ad = init_anvil()
-    cprint(f"Current Project: \t{ad.selected_project}", "purple")
-    cprint(f"Current Host: \t\t{ad.selected_host}", "purple")
+    if ad.s_project is not None:
+        cprint(f"Current Project: \t{ad.s_project}", "purple")
+        cprint(f"Current Host: \t\t{ad.s_host}", "purple")
+
     main(ad)
 
 else:

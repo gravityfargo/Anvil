@@ -1,7 +1,7 @@
-selected_host: peddle-cluster-worker0
-selected_project: Peddle-Configs
+current_project: Peddle-Configs
 projects:
   Peddle-Configs:
+    ansible_config_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/ansible.cfg
     groups:
       auth:
         hosts:
@@ -18,11 +18,21 @@ projects:
       workers:
         hosts:
           peddle-cluster-worker0: null
+    groups_list:
+    - storage
+    - workers
+    - management
+    - login
+    - auth
     hosts:
-      - peddle-cluster-storage0
-      - peddle-cluster-worker0
-      - peddle-cluster-mgmt
-      - peddle-cluster-login
-      - peddle-cluster-auth
-    inventory_file: repo/Peddle-Configs/inventory.yml
-    url: git@git-ssh.gravityfargo.dev:gravityfargo/Peddle-Configs.git
+    - peddle-cluster-storage0
+    - peddle-cluster-worker0
+    - peddle-cluster-mgmt
+    - peddle-cluster-login
+    - peddle-cluster-auth
+    inventory_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/inventory.yml
+    project_dir: /home/nathan/Development/Anvil/repo/Peddle-Configs
+    repo_url: git@git-ssh.gravityfargo.dev:gravityfargo/Peddle-Configs.git
+    tree_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/tree.yaml
+s_host: peddle-cluster-login
+s_project: Peddle-Configs
