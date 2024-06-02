@@ -1,5 +1,38 @@
-current_project: Peddle-Configs
 projects:
+  Barrows:
+    ansible_config_file_path: /home/nathan/Development/Anvil/testfolder/ansible.cfg
+    groups:
+      auth:
+        hosts:
+          peddle-cluster-auth: null
+      login:
+        hosts:
+          peddle-cluster-login: null
+      management:
+        hosts:
+          peddle-cluster-mgmt: null
+      storage:
+        hosts:
+          peddle-cluster-storage0: null
+      workers:
+        hosts:
+          peddle-cluster-worker0: null
+    groups_list:
+    - storage
+    - workers
+    - management
+    - login
+    - auth
+    hosts:
+    - peddle-cluster-storage0
+    - peddle-cluster-worker0
+    - peddle-cluster-mgmt
+    - peddle-cluster-login
+    - peddle-cluster-auth
+    inventory_file_path: /home/nathan/Development/Anvil/testfolder/inventory.yml
+    project_dir: /home/nathan/Development/Anvil/testfolder/
+    repo_url: ''
+    tree_file_path: /home/nathan/Development/Anvil/testfolder/tree.yaml
   Peddle-Configs:
     ansible_config_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/ansible.cfg
     groups:
@@ -34,5 +67,6 @@ projects:
     project_dir: /home/nathan/Development/Anvil/repo/Peddle-Configs
     repo_url: git@git-ssh.gravityfargo.dev:gravityfargo/Peddle-Configs.git
     tree_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/tree.yaml
+s_group: login
 s_host: peddle-cluster-login
-s_project: Peddle-Configs
+s_project: Barrows

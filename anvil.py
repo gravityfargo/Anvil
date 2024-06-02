@@ -1,40 +1,21 @@
 #!/usr/bin/env python
-import readline, importlib
-import cli.parse_input as parse_input
-import cli.file_utils as file_utils
-from cli.file_utils import (
-    cprint,
-)
+import readline
+from cli.parse_input import user_input_parser, cprint
+
+from cli.file_utils import init_anvil
+from config.vars import AnvilData
 from os import path
+from main import gui_main
 
-from cli.parse_input import init_anvil
 
-
-def main(ad):
-    parser_module = parse_input
-    parser_last_mod = path.getmtime("cli/parse_input.py")
-
-    file_utils_module = file_utils
-    file_utils_last_mod = path.getmtime("cli/file_utils.py")
-
+def main(ad: AnvilData):
     while True:
         try:
             command = input("anvil> ")
 
-            if not parser_module.user_input_parser(ad, command):
+            if not user_input_parser(ad, command):
                 break
             save_command_to_history(command)
-
-            parser_current_mod = path.getmtime("cli/parse_input.py")
-            file_utils_current_mod = path.getmtime("cli/file_utils.py")
-
-            if parser_current_mod != parser_last_mod:
-                importlib.reload(parser_module)
-                parser_last_mod = parser_current_mod
-
-            if file_utils_current_mod != file_utils_last_mod:
-                importlib.reload(file_utils_module)
-                file_utils_last_mod = file_utils_current_mod
 
         except KeyboardInterrupt:
             print("\nExiting.")
@@ -49,15 +30,16 @@ def save_command_to_history(command):
 
 
 if __name__ == "__main__":
-    cprint("Anvil CLI", "purple")
-    cprint("-------------------------------------------------", "purple")
+    # cprint("Anvil CLI", "purple")
+    # cprint("-------------------------------------------------", "purple")
+    ad = AnvilData()
+    ad = init_anvil(ad)
 
-    ad = init_anvil()
     if ad.s_project is not None:
         cprint(f"Current Project: \t{ad.s_project}", "purple")
         cprint(f"Current Host: \t\t{ad.s_host}", "purple")
-
-    main(ad)
+    gui_main(ad)
+    # main(ad)
 
 else:
 

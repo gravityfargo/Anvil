@@ -7,7 +7,6 @@ from cli.file_utils import (
     set_s_host,
     initial_setup,
     sync_configs_with_project_files,
-    update_tree_file,
 )
 from config.vars import AnvilData
 from ansible_utils import ping, playbook
@@ -15,42 +14,10 @@ from os import path
 import subprocess
 
 
-def init_anvil():
-    ad = AnvilData()
-    ad = initial_setup(ad)
-
-    anvil_data = YamlManager(ad.anvil_data_file).get_all()
-    ad.all_projects = list(anvil_data["projects"].keys())
-    if anvil_data["s_project"] is None:
-        return ad
-
-    ad.s_project = anvil_data["s_project"]
-    if ad.s_project is not None:
-        projectdata = anvil_data["projects"][anvil_data["s_project"]]
-        ad.s_host = anvil_data["s_host"]
-        ad.sp_groups_list = projectdata["groups_list"]
-        ad.sp_groups = projectdata["groups"]
-        ad.sp_inventory_file_path = path.join(
-            ad.root_path, projectdata["inventory_file_path"]
-        )
-        ad.sp_tree_file_path = projectdata["tree_file_path"]
-        ad.sp_hosts = projectdata["hosts"]
-        ad.sp_repo_url = projectdata["repo_url"]
-        ad.sp_project_dir = projectdata["project_dir"]
-
-    for key, value in ad.playbooks.items():
-        ad.playbooks[key] = path.join(ad.root_path, "playbooks", value)
-    return ad
-
-
 def user_input_parser(ad: AnvilData, user_input):
     argument = user_input.split(" ")
 
     match argument[0]:
-        # case "":
-        #     update_tree_file(ad)
-        #     return False
-
         case s if s.startswith("-s"):
             cprint("Set", "cyan")
             if len(s) < 3:
@@ -65,13 +32,7 @@ def user_input_parser(ad: AnvilData, user_input):
                         cprint("-sp <project_name>", "red")
                         return True
 
-                    returnval = set_s_project(ad, argument[1])
-                    if type(returnval) == str:
-                        ad.s_project = returnval
-                        cprint(f"Current Project is now: {returnval}", "green")
-                    elif type(returnval) == list:
-                        cprint("Project does not exist!", "red")
-                        cprint(f"Available Projects: {returnval}", "yellow")
+                    ad = set_s_project(ad, argument[1])
 
                 case "h":
                     cprint("Set Host", "cyan")
@@ -79,17 +40,11 @@ def user_input_parser(ad: AnvilData, user_input):
                         cprint("Select a Project First", "red")
                         return True
 
-                    if len(argument) != 2:
+                    if len(argument) < 2:
                         cprint("-sh <hostname>", "red")
                         return True
 
-                    returnval = set_s_host(ad, ad.s_project, argument[1])
-                    if type(returnval) == str:
-                        ad.s_host = returnval
-                        cprint(f"Current Host is now: {returnval}", "yellow")
-                    elif type(returnval) == list:
-                        cprint("Host does not exist!", "red")
-                        cprint(f"Available Hosts: {returnval}", "yellow")
+                    ad = set_s_host(ad, argument[1])
 
         case s if s.startswith("-c"):
             cprint("Create", "cyan")
@@ -144,7 +99,7 @@ def user_input_parser(ad: AnvilData, user_input):
                                 path.join(ad.sp_project_dir, argument[1]),
                             ]
                         )
-                        init_anvil()
+                        sync_configs_with_project_files(ad)
                         cprint(f"Deleted Group {argument[1]}", "green")
 
         case s if s.startswith("-i"):
@@ -160,14 +115,32 @@ def user_input_parser(ad: AnvilData, user_input):
                     if len(argument) != 2:
                         cprint("-ip <project_name>", "red")
                         return True
-                    if argument[1] == ad.sp_project:
+                    projectname = argument[1]
+
+                    if argument[1] in ad.all_projects:
                         cprint("Project already exists.", "red")
                         return True
-                    ret_status = import_existing_project(ad, argument[1])
-                    if ret_status == True:
-                        init_anvil()
+
+                    cprint(
+                        "Use an alternate directory? (y/n)",
+                        "purple",
+                    )
+                    user_input = input()
+
+                    if user_input == "y":
                         cprint(
-                            f"Project {argument[1]} successfully imported!",
+                            "Enter the full path to the project directory:", "purple"
+                        )
+                        user_input = input()
+                        ret_status = import_existing_project(
+                            ad, projectname, user_input
+                        )
+                    else:
+                        ret_status = import_existing_project(ad, projectname)
+
+                    if ret_status == True:
+                        cprint(
+                            f"Project {projectname} successfully imported!",
                             "yellow",
                         )
 
@@ -186,7 +159,9 @@ def user_input_parser(ad: AnvilData, user_input):
                         f"Hosts:\n {ad.sp_hosts}",
                         "yellow",
                     )
-        # UPDATE NEEDS TO GET CONFIG FILES AS WELL
+                case "p":
+                    cprint(f"Projects:\n { ad.all_projects }", "yellow")
+
         case "-u":
             cprint("Update", "cyan")
             if ad.s_project is None:
@@ -249,7 +224,7 @@ def user_input_parser(ad: AnvilData, user_input):
 
             if len(s) < 3:
                 cprint(
-                    "-rf <target_file> Fetch File from Selected Host\n -rc <command> Run a command on Selected Host",
+                    "-rf <target_file> Fetch File from Selected Host\n -rs <target_file> Send a File to Target Host\n -rc <command> Run a command on Selected Host",
                     "red",
                 )
                 return True
@@ -261,14 +236,28 @@ def user_input_parser(ad: AnvilData, user_input):
                     if len(argument) < 2:
                         cprint("-rf <target_file>", "red")
                         return True
-                    result = playbook(ad, "-rf", ad.s_host, argument[1])
+                    result = playbook(ad, "-rf", argument[1], ad.s_group, ad.s_host)
                     if result:
                         cprint("File Fetched Successfully", "green")
+                    else:
+                        cprint("Error Fetching File", "red")
 
-                case "c":
+                case "com":
                     cprint("Run command on Selected Host", "cyan")
                     # git fe
                     # git pull
+
+                case "s":
+                    cprint("Copy to Selected Host", "cyan")
+                    if len(argument) < 2:
+                        cprint("-rs <target_file>", "red")
+                        return True
+
+                    result = playbook(ad, "-rs", argument[1], ad.s_group, ad.s_host)
+                    if result:
+                        cprint("File Sent Successfully", "green")
+                    else:
+                        cprint("Error Sending File", "red")
 
         case "i" | "info":
             cprint("Current Project:", "purple")
@@ -298,6 +287,7 @@ def user_input_parser(ad: AnvilData, user_input):
             cprint("-l List", "red")
             cprint("\t-lg\t List Host Groups", "cyan")
             cprint("\t-lg\t List All Hosts", "cyan")
+            cprint("\t-lp\t List Projects", "cyan")
 
             cprint("-u Update", "red")
             cprint("\t-u\t Update Selected Project", "cyan")
@@ -309,7 +299,8 @@ def user_input_parser(ad: AnvilData, user_input):
 
             cprint("-r Remote", "red")
             cprint("\t-rf\t Fetch File from Selected Host", "cyan")
-            cprint("\t-rc\t Run a command on Selected Host", "cyan")
+            cprint("\t-rs\t Send File to Selected Host", "cyan")
+            cprint("\t-rcom <command>\t Run a command on Selected Host", "cyan")
 
             cprint("i Info", "red")
             cprint("\ti\t Info Set Vars", "cyan")

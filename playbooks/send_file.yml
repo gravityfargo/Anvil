@@ -1,5 +1,5 @@
 ---
-- name: Fetch a file from a remote server
+- name: Send a file to a remote server
   hosts: "{{ host_name }}"
   become: true
   vars:
@@ -7,7 +7,7 @@
     src_path: "{{ arg_src_path }}"
     dest_path: "{{ arg_dest_path }}"
   tasks:
-    - name: Fetch
-      ansible.builtin.fetch:
+    - name: Send
+      ansible.builtin.copy:
         src: "{{ src_path }}"
         dest: "{{ dest_path }}"

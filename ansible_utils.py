@@ -3,8 +3,8 @@ import sys
 from os import path, getcwd
 from cli.file_utils import (
     YamlManager,
-    build_host_parent_path,
-    return_hosts_parent_group,
+    build_group_path,
+    build_host_path,
     update_tree_file,
 )
 from config.vars import AnvilData
@@ -19,12 +19,23 @@ def ping(ad: AnvilData, host_pattern: str):
     )
 
 
-def playbook(ad: AnvilData, sender: str, host_pattern: str, target: str):
-    host_parent_path = build_host_parent_path(ad, host_pattern)
+def playbook(ad: AnvilData, sender: str, target: str, group_name="", host_name=""):
+
+    match sender:
+        case "-rf":
+            local_path = str(build_group_path(ad, group_name))
+            src_path = target
+            dest_path = local_path
+
+        case "-rs":
+            local_path = str(build_host_path(ad, group_name, host_name))
+            src_path = local_path + target
+            dest_path = target
+
     extra_vars = {
-        "arg_host": host_pattern,
-        "arg_src": target,
-        "arg_dest": host_parent_path,
+        "arg_host_name": host_name,
+        "arg_src_path": src_path,
+        "arg_dest_path": dest_path,
     }
     r = run(
         private_data_dir=ad.anvil_temp_dir,
@@ -32,8 +43,8 @@ def playbook(ad: AnvilData, sender: str, host_pattern: str, target: str):
         playbook=ad.playbooks[sender],
         extravars=extra_vars,
     )
+
     if r.status == "successful":
-        parent = return_hosts_parent_group(ad, host_pattern)
         update_tree_file(ad)
         return True
     else:

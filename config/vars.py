@@ -3,6 +3,7 @@ import json
 ANVIL_DATA_FILE = "config/anvil.yaml"
 PLAYBOOKS = {
     "-rf": "fetch_file.yml",
+    "-rs": "send_file.yml",
 }
 
 
@@ -15,6 +16,7 @@ class AnvilData:
         self.all_projects = None
 
         self.s_project = None
+        self.s_group = None
         self.s_host = None
 
         self.sp_ansible_config_file_path = None

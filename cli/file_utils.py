@@ -3,6 +3,34 @@ from os import makedirs, path, listdir, getcwd
 from config.vars import AnvilData
 
 
+def init_anvil(ad: AnvilData) -> AnvilData:
+    ad = initial_setup(ad)
+
+    anvil_data = YamlManager(ad.anvil_data_file).get_all()
+    ad.all_projects = list(anvil_data["projects"].keys())
+    if anvil_data["s_project"] is None:
+        return ad
+
+    ad.s_project = anvil_data["s_project"]
+    ad.s_group = anvil_data["s_group"]
+    if ad.s_project is not None:
+        projectdata = anvil_data["projects"][anvil_data["s_project"]]
+        ad.s_host = anvil_data["s_host"]
+        ad.sp_groups_list = projectdata["groups_list"]
+        ad.sp_groups = projectdata["groups"]
+        ad.sp_inventory_file_path = path.join(
+            ad.root_path, projectdata["inventory_file_path"]
+        )
+        ad.sp_tree_file_path = projectdata["tree_file_path"]
+        ad.sp_hosts = projectdata["hosts"]
+        ad.sp_repo_url = projectdata["repo_url"]
+        ad.sp_project_dir = projectdata["project_dir"]
+
+    for key, value in ad.playbooks.items():
+        ad.playbooks[key] = path.join(ad.root_path, "playbooks", value)
+    return ad
+
+
 class YamlManager:
     def __init__(self, filename: str):
         self.filename = filename
@@ -46,7 +74,12 @@ class YamlManager:
     def create_or_update_item(self, key, value):
         with open(self.filename, "r") as file:
             data = yaml.safe_load(file) or {}
-        data[key] = value
+
+        if key in data and isinstance(data[key], dict) and isinstance(value, dict):
+            data[key].update(value)
+        else:
+            data[key] = value
+
         with open(self.filename, "w") as file:
             yaml.safe_dump(data, file)
 
@@ -78,42 +111,35 @@ class YamlManager:
         return True
 
 
-def build_host_parent_path(ad: AnvilData, host_name: str) -> str:
-    groups_dict = ad.sp_groups
-    for key, val in groups_dict.items():
-        if host_name in list(val["hosts"].keys()):
-            return path.join(ad.sp_project_dir, key)
-    return None
+def build_host_path(ad: AnvilData, group_name: str, host_name: str) -> str:
+    return path.join(ad.sp_project_dir, group_name, host_name)
 
 
-def return_hosts_parent_group(ad: AnvilData, host_name: str) -> str:
-    groups_dict = ad.sp_groups
-    for key, val in groups_dict.items():
-        if host_name in list(val["hosts"].keys()):
-            return key
-    return None
+def build_group_path(ad: AnvilData, group_name: str) -> str:
+    return path.join(ad.sp_project_dir, group_name)
 
 
-def set_s_project(ad: AnvilData, project_name: str):
-    available_projects = YamlManager(ad.anvil_data_file).get_item("projects")
-    if project_name in available_projects.keys():
-        YamlManager(ad.anvil_data_file).create_or_update_item(
-            "current_project", project_name
-        )
-        return project_name
+def set_s_project(ad: AnvilData, project_name: str) -> AnvilData:
+    if project_name in ad.all_projects:
+        YamlManager(ad.anvil_data_file).create_or_update_item("s_project", project_name)
+        ad = init_anvil(ad)
+        cprint(f"Current Project is now: {project_name}", "green")
     else:
-        return list(available_projects.keys())
+        cprint("Not a valid project.", "red")
+    return ad
 
 
-def set_s_host(ad: AnvilData, current_project: str, host_name: str):
-    available_hosts = YamlManager(ad.anvil_data_file).get_item(
-        "projects", current_project, "hosts"
-    )
-    if host_name in available_hosts:
+def set_s_host(ad: AnvilData, host_name: str) -> AnvilData:
+    if host_name in ad.sp_hosts:
         YamlManager(ad.anvil_data_file).create_or_update_item("s_host", host_name)
-        return host_name
+        for key, val in ad.sp_groups.items():
+            if host_name in list(val["hosts"].keys()):
+                host_group = key
+        YamlManager(ad.anvil_data_file).create_or_update_item("s_group", host_group)
+        ad = init_anvil(ad)
     else:
-        return available_hosts
+        cprint("Not a valid host.", "red")
+    return ad
 
 
 def initialize_new_project(project_name: str):
@@ -134,9 +160,13 @@ def initial_setup(ad: AnvilData):
     return ad
 
 
-def import_existing_project(ad: AnvilData, project_name: str) -> bool:
+def import_existing_project(ad: AnvilData, project_name: str, alt_dir=None) -> bool:
     nad = AnvilData()
-    nad.sp_project_dir = path.join(ad.root_path, "repo/", project_name)
+    if alt_dir is not None:
+        nad.sp_project_dir = alt_dir
+    else:
+        nad.sp_project_dir = path.join(ad.root_path, "repo/", project_name)
+
     print(nad.sp_project_dir)
 
     nad.sp_inventory_file_path = path.join(nad.sp_project_dir, "inventory.yml")
@@ -159,8 +189,8 @@ def import_existing_project(ad: AnvilData, project_name: str) -> bool:
     YamlManager(ad.anvil_data_file).create_or_update_item(
         "projects", {project_name: new_ad.export_project_dict()}
     )
+    init_anvil()
     cprint(f"[{str(i)}] Import Successful.", "green")
-
     return True
 
 
@@ -186,25 +216,27 @@ def sync_configs_with_project_files(ad: AnvilData, i=0) -> bool:
     # check for .git folder
     if ".git" not in group_folders:
         i += 1
-        cprint(f"[{str(i)}] .git folder not found. Fix that.", "red")
-        return False
-
-    # check for git config
-    if not path.exists(git_config):
-        i += 1
-        cprint(f"[{str(i)}] .git/config not found. Fix that.", "red")
-        return False
-
-    # check git config for url
-    with open(git_config, "r") as file:
-        content = file.read()
-        url = re.search(r"url\s*=\s*(.*)", content)
-        if url is not None:
-            ad.sp_repo_url = url.group(1)
-        else:
+        cprint(f"[{str(i)}] .git folder not found.", "red")
+        ad.sp_repo_url = ""
+    else:
+        # check for git config
+        if not path.exists(git_config):
             i += 1
-            cprint(f"[{str(i)}] .git/config is missing its url. Fix that.", "red")
-            return False
+            cprint(f"[{str(i)}] .git/config not found.", "red")
+            ad.sp_repo_url = ""
+        else:
+            # check git config for url
+            with open(git_config, "r") as file:
+                content = file.read()
+                url = re.search(r"url\s*=\s*(.*)", content)
+                if url is not None:
+                    ad.sp_repo_url = url.group(1)
+                else:
+                    i += 1
+                    cprint(
+                        f"[{str(i)}] .git/config is missing its url. Fix that.", "red"
+                    )
+                    return False
 
     # check for ansible.cfg
     if "ansible.cfg" not in base_dir_items:
