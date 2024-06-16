@@ -1,10 +1,14 @@
 projects:
-  Barrows:
-    ansible_config_file_path: /home/nathan/Development/Anvil/testfolder/ansible.cfg
+  Peddle:
+    ansible_config_file_path: /home/nathan/Development/BarrowsHPC-Configs/configuration_files/ansible.cfg
     groups:
+      all: null
+      all:!auth:!storage: null
+      all:!storage: null
       auth:
         hosts:
           peddle-cluster-auth: null
+          peddle-cluster-keycloak: null
       login:
         hosts:
           peddle-cluster-login: null
@@ -18,6 +22,9 @@ projects:
         hosts:
           peddle-cluster-worker0: null
     groups_list:
+    - all
+    - all:!storage
+    - all:!auth:!storage
     - storage
     - workers
     - management
@@ -29,44 +36,13 @@ projects:
     - peddle-cluster-mgmt
     - peddle-cluster-login
     - peddle-cluster-auth
-    inventory_file_path: /home/nathan/Development/Anvil/testfolder/inventory.yml
-    project_dir: /home/nathan/Development/Anvil/testfolder/
+    - peddle-cluster-keycloak
+    inventory_file_path: /home/nathan/Development/BarrowsHPC-Configs/configuration_files/inventory.yml
+    playbooks_directory: /home/nathan/Development/BarrowsHPC-Configs/playbooks
+    project_dir: /home/nathan/Development/BarrowsHPC-Configs/configuration_files
     repo_url: ''
-    tree_file_path: /home/nathan/Development/Anvil/testfolder/tree.yaml
-  Peddle-Configs:
-    ansible_config_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/ansible.cfg
-    groups:
-      auth:
-        hosts:
-          peddle-cluster-auth: null
-      login:
-        hosts:
-          peddle-cluster-login: null
-      management:
-        hosts:
-          peddle-cluster-mgmt: null
-      storage:
-        hosts:
-          peddle-cluster-storage0: null
-      workers:
-        hosts:
-          peddle-cluster-worker0: null
-    groups_list:
-    - storage
-    - workers
-    - management
-    - login
-    - auth
-    hosts:
-    - peddle-cluster-storage0
-    - peddle-cluster-worker0
-    - peddle-cluster-mgmt
-    - peddle-cluster-login
-    - peddle-cluster-auth
-    inventory_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/inventory.yml
-    project_dir: /home/nathan/Development/Anvil/repo/Peddle-Configs
-    repo_url: git@git-ssh.gravityfargo.dev:gravityfargo/Peddle-Configs.git
-    tree_file_path: /home/nathan/Development/Anvil/repo/Peddle-Configs/tree.yaml
+    tree_file_path: /home/nathan/Development/BarrowsHPC-Configs/configuration_files/tree.yaml
+    variables_file_path: /home/nathan/Development/BarrowsHPC-Configs/playbooks/variables.yml
 s_group: login
 s_host: peddle-cluster-login
-s_project: Barrows
+s_project: Peddle
