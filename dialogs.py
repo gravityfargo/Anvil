@@ -1,6 +1,15 @@
-from PyQt6.QtWidgets import *
-from PyQt6.QtGui import *
-from PyQt6.QtCore import *
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QGroupBox,
+    QFormLayout,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QFileDialog,
+    QComboBox,
+)
 from config.vars import AnvilData
 
 
@@ -63,7 +72,7 @@ class SelectProjectDialog(QDialog):
         formGroupBox = QGroupBox()
         formlayout = QFormLayout()
 
-        known_projects = ad.all_projects
+        known_projects = ad.projects
         self.projects_combo = QComboBox()
         self.projects_combo.addItems(known_projects)
 
