@@ -1,12 +1,12 @@
-from PyQt6.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
+from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from core.helpers import BreakException
 from core.helpers import pcolor, pdebug
 import sys, traceback
 
 
 class WorkerSignals(QObject):
-    finished = pyqtSignal()
-    progress = pyqtSignal(tuple)
+    finished = Signal()
+    progress = Signal(tuple)
 
 
 class Worker(QRunnable):
@@ -22,11 +22,8 @@ class Worker(QRunnable):
         # Add the callback to our kwargs
         self.kwargs["progress_callback"] = self.signals.progress
 
-    @pyqtSlot()
+    @Slot()
     def run(self):
-        # print(f"Arguments: {self.args}")
-        # print(f"Keyword Arguments: {self.kwargs}")
-
         try:
             self.fn(*self.args, **self.kwargs)
         except BreakException as e:
