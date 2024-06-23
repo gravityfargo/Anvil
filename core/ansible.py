@@ -1,13 +1,6 @@
-from ansible_runner import *
-from core.helpers import BreakException
+from ansible_runner import run
 from core.helpers import pcolor, pdebug
-from os import path, getcwd
-import json
-from core.file_utils import (
-    build_group_path,
-    build_host_path,
-    update_tree_file,
-)
+import json , os
 from config.vars import AnvilData
 
 
@@ -34,7 +27,7 @@ def playbook(
     host_name,
     **kwargs,
 ):
-    local_path = str(build_group_path(ad, group_name))
+    local_path = str(os.path.join(ad, group_name))
     mode = kwargs.get("mode")
     owner = kwargs.get("owner")
     group = kwargs.get("group")
@@ -57,7 +50,7 @@ def playbook(
 
     match sender_flag:
         case "-r-fetch":
-            dest = str(build_host_path(ad, group_name, host_name)) + target
+            dest = os.path.join(ad, group_name, host_name) + target
             task = {
                 "name": f"Fetch {target} from {host_name}",
                 "ansible.builtin.fetch": {
@@ -71,7 +64,7 @@ def playbook(
 
         case "-r-send":
             if host_name is not None:
-                local_path = str(build_host_path(ad, group_name, host_name))
+                local_path = os.path.join(ad, group_name, host_name)
             else:
                 host_name = group_name
             
@@ -190,7 +183,7 @@ def playbook(
         
         case "-r-playbook":
             targete = target + ".yml"
-            play = path.join(ad.sp_playbooks_directory, targete)
+            play = os.path.join(ad.sp_playbooks_directory, targete)
 
         case "-r-file-copy":
             if host_name is None:
@@ -234,7 +227,8 @@ def playbook(
         
     if r.status == "successful":
         if sender_flag == "-r-fetch":
-            update_tree_file(ad)
+            # update_tree_file(ad)
+            pass
         return True
     else:
         return False
@@ -371,7 +365,6 @@ def status_handler(status_data, runner_config):
     status_data.pop("runner_ident", None)
     status_data.pop("command", None)
     status_data.pop("cwd", None)
-    # print(json.dumps(status_data, indent=4))
 
 def ad_hoc_shell(ad: AnvilData, host_pattern: str, command: str):
     r = run(
@@ -380,6 +373,3 @@ def ad_hoc_shell(ad: AnvilData, host_pattern: str, command: str):
         module="shell",
         module_args="whoami",
     )
-    for event in r.events:
-        print(event)
-    # print(r.stats)
