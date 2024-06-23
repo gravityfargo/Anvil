@@ -1,0 +1,27 @@
+config_file: config/anvil.yaml
+debug_level: 1
+projects:
+pwd:
+s_group:
+  hosts:
+  name:
+  path:
+  var_file_path:
+s_host:
+  group:
+  name:
+  path:
+  var_file_path:
+s_project:
+  ansible_config_file:
+  groups:
+  groups_list:
+  hosts:
+  hosts_list:
+  inventory_file:
+  name:
+  path:
+  playbooks_directory:
+  repo_url:
+  tree_file:
+temp_dir: /tmp/anvil
