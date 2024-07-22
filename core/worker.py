@@ -1,6 +1,5 @@
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from core.helpers import BreakException
-from core.helpers import pcolor, pdebug
 import sys, traceback
 
 

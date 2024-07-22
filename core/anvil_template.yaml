@@ -1,7 +1,16 @@
-config_file: config/anvil.yaml
-debug_level: 1
+options:
+  config_file: core/anvil.yaml
+  temp_dir: /tmp/anvil
+  pwd:
+debug:
+  level: 1
+  class_color: "cyan"
+  function_color: "purple"
+  changed_color: "yellow"
+  error_color: "red"
+  ok_color: "green"
+  info_color: "gray"
 projects:
-pwd:
 s_group:
   hosts:
   name:
@@ -24,4 +33,3 @@ s_project:
   playbooks_directory:
   repo_url:
   tree_file:
-temp_dir: /tmp/anvil

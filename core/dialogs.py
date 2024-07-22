@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QComboBox,
 )
-from config.vars import AnvilData
+from core.classes import AnvilData
 
 
 class ImportProjectDialog(QDialog):

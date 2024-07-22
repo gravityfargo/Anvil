@@ -1,4 +1,5 @@
 import sys, os, json
+from typing import Callable
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import (
     QVBoxLayout,
@@ -16,7 +17,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QLabel,
     QDialogButtonBox,
-    QFrame,
     QHBoxLayout,
     QMessageBox,
     QMainWindow,
@@ -24,34 +24,16 @@ from PySide6.QtWidgets import (
     QSpacerItem,
     QApplication,
     QSizePolicy,
+    QMenu,
+    QTabWidget,
 )
 from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor, QAction
 import qdarktheme
-from config.vars import AnvilData
-from dialogs import ImportProjectDialog, SelectProjectDialog
+from core.classes import AnvilData, YamlManager, Printer
+from core.dialogs import ImportProjectDialog, SelectProjectDialog
 from core.ansible import playbook
 from core.worker import Worker
-from core.file_utils import (
-    sync_project_with_file_system,
-    import_existing_project,
-    sync_tree_with_file_system,
-)
-from core.helpers import YamlManager, pdebug
-
-
-element_names = [
-    "target_combobox_groups",
-    "target_combobox_host",
-    "playbookctl_button_run_playbook",
-    "file_lineedit_target",
-    "file_button_fetch",
-    "file_button_send",
-    "file_button_link_service",
-    "service_lineedit_service_name",
-    "service_button_restart",
-    "service_button_stop",
-    "service_button_start",
-]
+from core.gui_components import MakeSection
 
 
 class MainWindow(QMainWindow):
@@ -62,347 +44,399 @@ class MainWindow(QMainWindow):
         self.manual_change = True
         self.thread_pool = QThreadPool()
         self.setWindowTitle("Anvil")
+        self.p = Printer("class", "MainWindow")
 
         top_layout = QHBoxLayout()
+        top_layout.setObjectName("top_layout")
         bottom_layout = QVBoxLayout()
+        bottom_layout.setObjectName("bottom_layout")
 
-        self.setup_groupbox(top_layout, "change_action", "Bulk Actions", 120)
-        self.create_widget(top_layout, "filetree", 350)
-        self.create_widget(top_layout, "control", 350)
-        self.create_groupbox(top_layout, "actions", "Actions", QFormLayout(), 350)
-        self.create_widget(top_layout, "varedit")
-        self.create_widget(bottom_layout, "console")
+        s1 = MakeSection(self, top_layout, QVBoxLayout(), "s1", True)
+        s1.insert_mode = True
+        s1.qgroupbox("target_groupbox", "Target Machines")
+        self.setup_widget(s1)
+        s1.set_active("s1_layout")
+        s1.insert(self.setup_file_tree())
+
+        # Section 2, the tab area.
+        s2 = MakeSection(self, top_layout, QVBoxLayout(), "s2", True)
+        s2.insert_mode = True
+        s2.qtabwidget("s2_tabs")
+
+        _, widget = s2.qwidget("quick_actions_tab", QVBoxLayout, "Quick Actions")
+        widget.setSpacing(20)
+
+        quick_tab = MakeSection(
+            self, s2.active_layout, QVBoxLayout(), "quick_tab", True
+        )
+        quick_tab.insert_mode = True
+        quick_tab.qgroupbox("quickfile", "File")
+        self.setup_widget(quick_tab)
+        quick_tab.last("layout")
+        quick_tab.qgroupbox("quickshell", "Shell")
+        self.setup_widget(quick_tab)
+        quick_tab.last("layout")
+        quick_tab.qgroupbox("quickservice", "Service")
+        self.setup_widget(quick_tab)
+
+        s2.qwidget("file_tab", QVBoxLayout, "File")
+
+        # file_tab = MakeSection(self, top_layout, QVBoxLayout(), "file_tab")
+
+        # section2.qwidget("tab_shell", "ansible.builtin.shell")
+        # section2.last("layout")
+        # section2.qwidget("tab_apt", "ansible.builtin.apt")
+        # section2.last("layout")
+        # section2.qwidget("tab_ufw", "community.general.ufw")
+        # section.container_widget()
+        # self.setup_groupbox(section, "")
+
+        console_section = MakeSection(self, top_layout, QVBoxLayout(), "console", True)
+        console_textedit = QTextEdit()
+        console_textedit.setMinimumWidth(400)
+        console_textedit.setReadOnly(True)
+        setattr(self, "console_textedit", console_textedit)
+        console_section.insert(console_textedit)
 
         main_container = QWidget()
-        window_layout = QVBoxLayout()
-        main_container.setLayout(window_layout)
-        self.setCentralWidget(main_container)
+        window_layout = QVBoxLayout(main_container)
         window_layout.addLayout(top_layout)
-        window_layout.addLayout(bottom_layout)
 
-        self.createMenuBar()
+        self.setCentralWidget(main_container)
+        # quit()
+        # self.setup_menubar()
+        # self.showMaximized()
 
-    # region GUI Definitions
-    def createMenuBar(self):
-        menuBar = self.menuBar()
-        project_menu = menuBar.addMenu("Project")
-        import_project = QAction("Import a Project", self)
-        select_project = QAction("Select a Project", self)
-        select_playbook_directory = QAction("Select Playbook Directory", self)
-        import_project.triggered.connect(self.import_project_dialog)
-        select_project.triggered.connect(self.select_project_dialog)
-        select_playbook_directory.triggered.connect(self.select_playbook_directory)
-        project_menu.addAction(import_project)
-        project_menu.addAction(select_project)
-        project_menu.addAction(select_playbook_directory)
+    # region GUI_Setup
 
-        sync_tree = QAction("Sync Tree", self)
-        sync_tree.triggered.connect(self.sync_tree)
-        menuBar.addAction(sync_tree)
+    #             # top_actions_layout = QVBoxLayout()
+    #             # top_actions_layout.setObjectName("top_actions_layout")
+    #             # setattr(self, "top_actions_layout", top_actions_layout)
+    #             # bottom_actions_layout = QVBoxLayout()
+    #             # bottom_actions_layout.setObjectName("bottom_actions_layout")
+    #             # setattr(self, "bottom_actions_layout", bottom_actions_layout)
+    #             # self.setup_groupbox(top_actions_layout, "empty", "Action Area", 350)
+    #             # layout.addLayout(top_actions_layout)
+    #             # layout.addLayout(bottom_actions_layout)
 
-        debug_menu = menuBar.addMenu("Debug")
+    def setup_menubar(self):
+        menu = self.menuBar()
+        prj_menu = menu.addMenu("Project Settings")
+        dbg_menu = menu.addMenu("Debug")
 
-        debug_file_send = QAction("File Send", self)
-        debug_file_fetch = QAction("File Fetch", self)
-        debug_service_restart = QAction("Service Restart", self)
-        debug_service_start = QAction("Service Start", self)
-        debug_service_stop = QAction("Service Stop", self)
-        debug_files = QAction("Files", self)
-        debug_apt = QAction("Apt", self)
-        debug_ufw = QAction("UFW", self)
-        debug_shell_run = QAction("Shell", self)
-        debug_link_service = QAction("Link Service", self)
-
-        debug_file_send.setObjectName("file_button_send")
-        debug_file_fetch.setObjectName("file_button_fetch")
-        debug_service_restart.setObjectName("service_button_restart")
-        debug_service_start.setObjectName("service_button_start")
-        debug_service_stop.setObjectName("service_button_stop")
-        debug_files.setObjectName("playfile_button_create")
-        debug_apt.setObjectName("playapt_button_install")
-        debug_ufw.setObjectName("playufw_button_allow")
-        debug_shell_run.setObjectName("shell_button_run")
-        debug_link_service.setObjectName("file_button_link_service")
-
-        debug_file_send.triggered.connect(self.debug_button)
-        debug_file_fetch.triggered.connect(self.debug_button)
-        debug_service_restart.triggered.connect(self.debug_button)
-        debug_service_start.triggered.connect(self.debug_button)
-        debug_service_stop.triggered.connect(self.debug_button)
-        debug_files.triggered.connect(self.debug_button)
-        debug_apt.triggered.connect(self.debug_button)
-        debug_ufw.triggered.connect(self.debug_button)
-        debug_shell_run.triggered.connect(self.debug_button)
-        debug_link_service.triggered.connect(self.debug_button)
-
-        debug_menu.addAction(debug_file_send)
-        debug_menu.addAction(debug_file_fetch)
-        debug_menu.addAction(debug_service_restart)
-        debug_menu.addAction(debug_service_start)
-        debug_menu.addAction(debug_service_stop)
-        debug_menu.addAction(debug_files)
-        debug_menu.addAction(debug_apt)
-        debug_menu.addAction(debug_ufw)
-        debug_menu.addAction(debug_shell_run)
-        menuBar.addAction(debug_link_service)
-
-    def setup_groupbox(
-        self,
-        parent_layout: QHBoxLayout | QVBoxLayout | QFormLayout,
-        prefix: str,
-        name: str,
-        minwidth: int = None,
-    ):
-        if isinstance(parent_layout, QFormLayout):
-            pdebug(f"setup_groupbox() existing {parent_layout.objectName()}")
-            layout_prefix = parent_layout.objectName().split("_")[0]
-            groupbox = getattr(self, f"{layout_prefix}_groupbox")
-            form_layout = getattr(self, parent_layout.objectName())
-            exclude = [parent_layout.objectName(), groupbox.objectName()]
-            self.modify_children(layout_prefix, "deleteLater", exclude=[exclude])
-        else:
-            self.create_groupbox(parent_layout, prefix, name, QFormLayout(), minwidth)
-            groupbox = getattr(self, f"{prefix}_groupbox")
-            form_layout = getattr(self, f"{prefix}_groupbox_layout")
-
-        button_row1_container = QFrame()
-        button_row1_layout = QHBoxLayout()
-        button_row1_layout.setContentsMargins(0, 0, 0, 0)
-        button_row1_container.setLayout(button_row1_layout)
-
-        button_row2_container = QFrame()
-        button_row2_layout = QHBoxLayout()
-        button_row2_layout.setContentsMargins(0, 0, 0, 0)
-        button_row2_container.setLayout(button_row2_layout)
-        match prefix:
-            case "change_action":
-                self.create_button(form_layout, prefix, "File")
-                self.create_button(form_layout, prefix, "Copy")
-                self.create_button(form_layout, prefix, "Apt")
-                self.create_button(form_layout, prefix, "UFW")
-            case "target":
-                self.create_combobox(form_layout, prefix, "Groups")
-                self.create_combobox(form_layout, prefix, "Host")
-            case "file":
-                self.create_lineedit(form_layout, prefix, "Target", "/etc/hosts")
-                self.create_button(button_row1_layout, prefix, "Fetch")
-                self.create_button(button_row1_layout, prefix, "Send")
-                self.create_button(button_row2_layout, prefix, "Link Service")
-                self.create_button(button_row2_layout, prefix, "Link Commands")
-            case "shell":
-                self.create_lineedit(
-                    form_layout, prefix, "Command1", "echo 'Hello World'"
-                )
-                self.create_lineedit(form_layout, prefix, "Command2", "")
-                self.create_lineedit(form_layout, prefix, "Command3", "")
-                self.create_button(button_row1_layout, prefix, "Run")
-            case "service":
-                self.create_lineedit(form_layout, prefix, "Service Name", "rsyslog")
-                self.create_button(button_row1_layout, prefix, "Restart")
-                self.create_button(button_row1_layout, prefix, "Stop")
-                self.create_button(button_row1_layout, prefix, "Start")
-            case "playfile":
-                state = ["file", "absent", "directory", "touch"]
-                recurse = ["yes", "no"]
-                form_layout.addRow(QLabel("ansible.builtin.file"))
-                self.create_combobox(form_layout, prefix, "state", state)
-                self.create_combobox(form_layout, prefix, "recurse", recurse)
-                self.create_lineedit(form_layout, prefix, "path", "/etc/hosts")
-                self.create_lineedit(form_layout, prefix, "owner", "root")
-                self.create_lineedit(form_layout, prefix, "group", "root")
-                self.create_lineedit(form_layout, prefix, "mode", "0744")
-                self.create_button(form_layout, prefix, "Submit")
-                self.create_v_spacer(form_layout)
-                form_layout.addRow(QLabel("Variables"))
-                self.create_combobox(form_layout, prefix, "Directory Vars", [])
-                self.create_combobox(form_layout, prefix, "File Vars", [])
-                self.create_button(button_row1_layout, prefix, "Create")
-                self.create_button(button_row1_layout, prefix, "Absent")
-                self.create_button(button_row1_layout, prefix, "Permissions")
-
-                lst = ["Local to Remote", "Remote to Local"]
-            case "playapt":
-                self.create_combobox(form_layout, prefix, "Apt Vars", [])
-                self.create_lineedit(form_layout, prefix, "Package", "nginx")
-                self.create_checkbox(form_layout, prefix, "Update")
-                self.create_button(button_row1_layout, prefix, "Install")
-                self.create_button(button_row1_layout, prefix, "Remove")
-            case "playufw":
-                self.create_combobox(form_layout, prefix, "Rule Vars", [])
-                self.create_lineedit(form_layout, prefix, "Port", "22")
-                self.create_lineedit(form_layout, prefix, "Comment", "OpenSSH")
-                self.create_button(button_row1_layout, prefix, "Allow")
-                self.create_button(button_row1_layout, prefix, "Deny")
-            case "varedit":
-                self.create_button(button_row1_layout, prefix, "Save")
-                self.create_button(button_row1_layout, prefix, "Reset")
-            case "linkservice":
-                self.create_lineedit(form_layout, prefix, "Service Name", "rsyslog")
-                self.create_button(button_row1_layout, prefix, "Link")
-
-        if len(self.get_children(button_row1_layout)) > 0:
-            button_row1_container.setVisible(True)
-            form_layout.addRow(button_row1_container)
-        else:
-            button_row1_container.setVisible(False)
-
-        if len(self.get_children(button_row2_layout)) > 0:
-            button_row2_container.setVisible(True)
-            form_layout.addRow(button_row2_container)
-        else:
-            button_row2_container.setVisible(False)
-
-        self.children_to_attr(groupbox)
-
-    def create_widget(
-        self,
-        parent_layout: QHBoxLayout | QVBoxLayout,
-        prefix: str,
-        minwidth: int = None,
-    ):
-        layout = QVBoxLayout()
-        match prefix:
-            case "filetree":
-                model = QFileSystemModel()
-                model.setRootPath(self.ad.s_project["path"])
-                tree = QTreeView()
-                tree.setModel(model)
-                tree.setRootIndex(model.index(self.ad.s_project["path"]))
-                tree.setColumnWidth(0, 300)
-                tree.clicked.connect(self.on_file_selected)
-                tree.hideColumn(1)
-                tree.hideColumn(2)
-                tree.hideColumn(3)
-                setattr(self, "model", model)
-                setattr(self, "tree", tree)
-                if minwidth is not None:
-                    tree.setMinimumWidth(minwidth)
-                layout.addWidget(tree)
-            case "progress_bar":
-                progress_bar = QProgressBar()
-                progress_bar.setRange(0, 100)
-                progress_bar.setTextVisible(True)
-                progress_bar.setMaximumHeight(20)
-                setattr(self, "progress_bar", progress_bar)
-            case "varedit":
-                textedit = QTextEdit()
-                textedit.setReadOnly(True)
-                self.setup_groupbox(layout, "varedit", "Modify Variables")
-                setattr(self, "varedit_textedit", textedit)
-                layout.addWidget(textedit)
-            case "console":
-                console_textedit = QTextEdit()
-                console_textedit.setReadOnly(True)
-                setattr(self, "console_textedit", console_textedit)
-                layout.addWidget(console_textedit)
-            case "control":
-                layout.setSpacing(20)
-                self.setup_groupbox(layout, "target", "Target Machines", 350)
-                self.setup_groupbox(layout, "shell", "ansible.builtin.shell")
-                self.setup_groupbox(layout, "file", "ansible.builtin.fetch/copy")
-                self.setup_groupbox(
-                    layout, "service", "ansible.builtin.systemd_service"
-                )
-                self.create_widget(layout, "progress_bar")
-        parent_layout.addLayout(layout)
-
-    # endregion
-
-    # region GUI Creation
-    def create_checkbox(self, layout: QVBoxLayout, name: str, desciption: str):
-        checkbox = QCheckBox(desciption)
-        suffix = desciption.lower().replace(" ", "_")
-        checkbox.setObjectName(f"{name}_checkbox_{suffix}")
-        layout.addWidget(checkbox)
-
-    def create_v_spacer(self, layout):
-        spacer = QSpacerItem(
-            20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
+        self.create_qaction(prj_menu, "Import a Project", self.import_project_dialog)
+        self.create_qaction(prj_menu, "Select a Project", self.select_project_dialog)
+        self.create_qaction(
+            prj_menu, "Select Playbook Directory", self.select_playbook_directory
         )
-        if isinstance(layout, QVBoxLayout):
-            layout.addSpacerItem(spacer)
-        if isinstance(layout, QFormLayout):
-            layout.addItem(spacer)
 
-    def create_button(self, layout, name: str, desciption: str):
-        button = QPushButton(desciption)
-        suffix = desciption.lower().replace(" ", "_")
-        button.setObjectName(f"{name}_button_{suffix}")
-        button.clicked.connect(self.buttons_changed)
-        if isinstance(layout, QFormLayout):
-            layout.addRow(button)
-        else:
-            layout.addWidget(button)
+        self.create_qaction(prj_menu, "Sync Tree", self.dialog_sync_tree)
+        self.create_qaction(
+            dbg_menu,
+            "File Send",
+            self.signal_connect_debug_button,
+            "file_button_send",
+        )
+        self.create_qaction(
+            dbg_menu,
+            "File Fetch",
+            self.signal_connect_debug_button,
+            "file_button_fetch",
+        )
+        self.create_qaction(
+            dbg_menu,
+            "Service Restart",
+            self.signal_connect_debug_button,
+            "service_button_restart",
+        )
+        self.create_qaction(
+            dbg_menu,
+            "Service Start",
+            self.signal_connect_debug_button,
+            "service_button_start",
+        )
+        self.create_qaction(
+            dbg_menu,
+            "Service Stop",
+            self.signal_connect_debug_button,
+            "service_button_stop",
+        )
+        self.create_qaction(
+            dbg_menu,
+            "Files",
+            self.signal_connect_debug_button,
+            "playfile_button_create",
+        )
+        self.create_qaction(
+            dbg_menu,
+            "Apt",
+            self.signal_connect_debug_button,
+            "playapt_button_install",
+        )
+        self.create_qaction(
+            dbg_menu, "UFW", self.signal_connect_debug_button, "playufw_button_allow"
+        )
+        self.create_qaction(
+            dbg_menu, "Shell", self.signal_connect_debug_button, "shell_button_run"
+        )
+        self.create_qaction(
+            dbg_menu,
+            "Link Service",
+            self.signal_connect_debug_button,
+            "file_button_link_service",
+        )
 
-    def create_lineedit(self, layout: QFormLayout, name: str, desciption: str, ph: str):
-        lineedit = QLineEdit()
-        label = QLabel(desciption)
-        suffix = desciption.lower().replace(" ", "_")
-        lineedit.setObjectName(f"{name}_lineedit_{suffix}")
-        lineedit.setPlaceholderText(ph)
-        label.setObjectName(f"{name}_lineeditlabel_{suffix}")
-        layout.addRow(label, lineedit)
+    def setup_file_tree(self) -> QTreeView:
+        model = QFileSystemModel()
+        model.setRootPath(self.ad.s_project["path"])
+        tree = QTreeView()
+        tree.setModel(model)
+        tree.setRootIndex(model.index(self.ad.s_project["path"]))
+        tree.setColumnWidth(0, 300)
+        tree.clicked.connect(self.on_file_selected)
+        tree.hideColumn(1)
+        tree.hideColumn(2)
+        tree.hideColumn(3)
+        setattr(self, "file_system_model", model)
+        setattr(self, "tree_view", tree)
+        tree.setMinimumWidth(350)
+        tree.setMaximumWidth(400)
+        tree.setObjectName("file_tree")
+        return tree
 
-    def create_combobox(
-        self, layout: QFormLayout, name: str, desciption: str, options=[]
+    def setup_widget(
+        self,
+        ms: MakeSection,
+        purpose: str = None,
     ):
-        combobox = QComboBox()
-        label = QLabel(desciption)
-        suffix = desciption.lower().replace(" ", "_")
-        combobox.setObjectName(f"{name}_combobox_{suffix}")
-        label.setObjectName(f"{name}_comboboxlabel_{suffix}")
-        if len(options) > 0:
-            combobox.addItems(options)
-        elif desciption == "Host":
-            if self.ad.s_project["hosts_list"] is not None:
-                combobox.addItems(self.ad.s_project["hosts_list"])
-        elif desciption == "Groups":
-            if self.ad.s_project["groups_list"] is not None:
-                combobox.addItems(self.ad.s_project["groups_list"])
-        combobox.addItem("")
-        combobox.setCurrentIndex(-1)
-        combobox.currentIndexChanged.connect(self.comboboxes_changed)
-        layout.addRow(label, combobox)
+        self.p.set("function", "setup_widget")
+        active_widget = ms.active_widget.objectName()
+        bc1 = QWidget()
+        bl1 = QHBoxLayout(bc1)
+        bl1.setContentsMargins(0, 0, 0, 0)
 
-    def create_groupbox(
-        self, parent_layout, prefix: str, title: str, layout, minwidth=None
-    ):
-        groupbox = QGroupBox(title)
-        groupbox.setLayout(layout)
-        groupbox.setObjectName(f"{prefix}_groupbox")
-        layout.setObjectName(f"{prefix}_groupbox_layout")
-        if minwidth is not None:
-            groupbox.setMinimumWidth(minwidth)
-        setattr(self, groupbox.objectName(), groupbox)
-        setattr(self, layout.objectName(), layout)
-        parent_layout.addWidget(groupbox)
+        bc2 = QWidget()
+        bl2 = QHBoxLayout(bc2)
+        bl2.setContentsMargins(0, 0, 0, 0)
+
+        match active_widget:
+            case "target_groupbox":
+                ms.qcombobox("groups", "Groups", self.ad.s_project["groups_list"])
+                ms.qcombobox("hosts", "Hosts", self.ad.s_project["hosts_list"])
+            case "quickfile":
+                ms.qlineedit("quickfile_target", "/etc/hosts", "Target File")
+                ms.qlayout(QHBoxLayout)
+                ms.qpushbutton("quickfile_fetch", "Fetch")
+                ms.qpushbutton("quickfile_send", "Send")
+                ms.last("layout")
+                ms.qlayout(QHBoxLayout)
+                ms.qpushbutton("quickfile_linkservice", "Link Service")
+                ms.qpushbutton("quickfile_linkcommands", "Link Commands")
+                ms.last("layout")
+            case "quickshell":
+                ms.qlineedit("quickshell_1", "echo 'Hello'")
+                ms.qlineedit("quickshell_2", "echo 'World'")
+                ms.qlineedit("quickshell_3", "echo '!'")
+                ms.qpushbutton("quickshell_run", "Run")
+                ms.qspaceritem()
+            case "quickservice":
+                ms.qlineedit("service_name", "rsyslog")
+                ms.qlayout(QHBoxLayout)
+                ms.qpushbutton("quickservice_start", "Start")
+                ms.qpushbutton("quickservice_restart", "Restart")
+                ms.last("layout")
+                ms.qlayout(QHBoxLayout)
+                ms.qpushbutton("quickservice_stop", "Stop")
+                ms.qpushbutton("quickservice_enable", "Enable")
+                ms.qpushbutton("quickservice_disable", "Disable")
+                ms.last("layout")
+        self.p.ok(ms.active_widget.objectName())
+
+        #     case "playfile":
+        #         state = ["file", "absent", "directory", "touch"]
+        #         recurse = ["yes", "no"]
+        #         self.qcombobox(parent_layout, prefix, "state", state)
+        #         self.qcombobox(parent_layout, prefix, "recurse", recurse)
+        #         self.qlineedit(parent_layout, prefix, "path", "/etc/hosts")
+        #         self.qlineedit(parent_layout, prefix, "owner", "root")
+        #         self.qlineedit(parent_layout, prefix, "group", "root")
+        #         self.qlineedit(parent_layout, prefix, "mode", "0744")
+        #         self.create_spacer(parent_layout)
+        #         self.qpushbutton(bl1, prefix, "Submit")
+        #     case "playfile_vars":
+        #         self.qcombobox(parent_layout, prefix, "Directories", [])
+        #         self.qcombobox(parent_layout, prefix, "Files", [])
+        #         self.qpushbutton(bl1, prefix, "Create")
+        #         self.qpushbutton(bl1, prefix, "Absent")
+        #         self.qpushbutton(bl1, prefix, "Permissions")
+        #     case "playpackage":
+        #         preset = [
+        #             "apt-get upgrade",
+        #             "apt-get dist-upgrade",
+        #             "apt-get update",
+        #             "autoclean",
+        #             "apt-get clean",
+        #             "autoremove",
+        #             "autoremove + purge",
+        #         ]
+        #         self.qcombobox(parent_layout, prefix, "Preset", preset)
+        #         state = ["present", "latest", "absent"]
+        #         self.qcombobox(parent_layout, prefix, "State", state)
+        #         self.qlineedit(parent_layout, prefix, "Package 1", "nginx")
+        #         self.qlineedit(parent_layout, prefix, "Package 2")
+        #         self.qlineedit(parent_layout, prefix, "Package 3")
+        #         self.qlineedit(parent_layout, prefix, "Package 4")
+        #         hbox1 = QHBoxLayout()
+        #         self.create_checkbox(hbox1, prefix, "autoclean")
+        #         self.create_checkbox(hbox1, prefix, "autoremove")
+        #         # parent_layout.addRow(hbox1)
+        #         hbox2 = QHBoxLayout()
+        #         self.create_checkbox(hbox2, prefix, "clean")
+        #         self.create_checkbox(hbox2, prefix, "purge")
+        #         # parent_layout.addRow(hbox2)
+        #         self.create_checkbox(parent_layout, prefix, "update_cache")
+        #         self.qlineedit(parent_layout, prefix, "cache_valid_time")
+        #         upgrade = ["dist", "full", "safe", "yes", "no"]
+        #         self.qcombobox(parent_layout, prefix, "upgrade", upgrade)
+        #         self.create_spacer(parent_layout)
+        #         self.qpushbutton(bl1, prefix, "Submit")
+        #     case "playpackage_vars":
+        #         self.qcombobox(parent_layout, prefix, "Package List", [])
+        #         parent_layout.addRow(QLabel("Package List must have options defined."))
+        #         self.create_spacer(parent_layout)
+        #         self.qpushbutton(bl1, prefix, "Submit")
+        #     # case "playcopy":
+        #     #     self.qcombobox(parent_layout, prefix, "Files", [])
+        #     #     self.create_spacer(parent_layout)
+        #     #     self.qpushbutton(bl1, prefix, "Submit")
+        #     case "playfirewall":
+        #         rule = ["allow", "deny", "reject"]
+        #         self.qcombobox(parent_layout, prefix, "rule", rule)
+        #         self.qlineedit(parent_layout, prefix, "port", "22")
+        #         proto = [
+        #             "any",
+        #             "tcp",
+        #             "udp",
+        #             "ipv6",
+        #             "esp",
+        #             "ah",
+        #             "gre",
+        #             "igmp",
+        #         ]
+
+        #         self.qcombobox(parent_layout, prefix, "proto", proto)
+        #         self.qlineedit(parent_layout, prefix, "Comment", "OpenSSH")
+        #         self.create_checkbox(parent_layout, prefix, "delete")
+        #         self.create_spacer(parent_layout)
+        #         self.qpushbutton(bl1, prefix, "Submit")
+        #     case "playfirewall_vars":
+        #         self.qcombobox(parent_layout, prefix, "Rule List", [])
+        #         parent_layout.addRow(QLabel("Rule List must have options defined."))
+        #         self.qpushbutton(bl1, prefix, "Submit")
+        #     case "linkservice":
+        #         self.qlineedit(parent_layout, prefix, "Service", "rsyslog")
+        #         self.qpushbutton(bl1, prefix, "Link")
+
+        # if len(self.get_children(bl1)) > 0:
+        #     bc1.setVisible(True)
+        #     parent_layout.addRow(bc1)
+        # else:
+        #     bc1.setVisible(False)
+
+        # if len(self.get_children(bl2)) > 0:
+        #     bc2.setVisible(True)
+        #     parent_layout.addRow(bc2)
+        # else:
+        #     bc2.setVisible(False)
 
     # endregion
 
-    # region Signal Handling
-    def buttons_changed(self):
+    # region Signals
+
+    def signal_connect_button(self):
         sender = self.sender().objectName()
-        pdebug(f"buttons_changed(): {sender}", "yellow")
+        if sender.startswith("change_action"):
+            self.modify_children("_actions_layout", "RemoveChildren")
         match sender:
             case "change_action_button_file":
+
                 self.setup_groupbox(
-                    self.actions_groupbox_layout, "playfile", "File Utilities"
+                    self.top_actions_layout, "playfile", "File Utilities", 350
                 )
-                self.populate_play_fields_comboboxs("playfile")
+                self.populate_play_fields_comboboxs()
             case "change_action_button_copy":
-                self.setup_groupbox(self.actions_groupbox_layout, "playcopy")
+                self.setup_groupbox(
+                    self.top_actions_layout, "playcopy", "ansible.builtin.copy", 350
+                )
+                self.populate_play_fields_comboboxs()
             case "change_action_button_apt":
                 self.setup_groupbox(
-                    self.actions_groupbox_layout, "playapt", "ansible.builtin.apt"
+                    self.top_actions_layout, "playapt", "ansible.builtin.apt", 350
                 )
+                self.playapt_lineedit_cache_valid_time.setText("3600")
+                self.populate_play_fields_comboboxs()
             case "change_action_button_ufw":
                 self.setup_groupbox(
-                    self.actions_groupbox_layout, "playufw", "ansible.builtin.ufw"
+                    self.top_actions_layout, "playufw", "community.general.ufw", 350
                 )
+                self.populate_play_fields_comboboxs()
+                ind = self.playufw_combobox_proto.findText("tcp")
+                self.playufw_combobox_proto.setCurrentIndex(ind)
+
             case "file_button_link_service":
                 self.link_service()
+            case "file_button_link_commands":
+                pass
             case _:
                 self.ansible_execute()
+
+    def signal_connect_debug_button(self):
+        sender_name = self.sender().objectName()
+        group = self.target_combobox_groups
+        host = self.target_combobox_host
+
+        i = host.findText("peddle-cluster-mgmt")
+        host.setCurrentIndex(i)
+
+        match sender_name:
+            case "file_button_send":
+                pass
+                # file_target.setText("/etc/anviltest.txt")
+            case "file_button_fetch":
+                pass
+                # file_target.setText("/etc/anviltest.txt")
+            case s if s.startswith("service"):
+                pass
+                # service_target.setText("rsyslog")
+            case s if s.startswith("shell"):
+                pass
+                # self.setup_groupbox(self.actions_groupbox, "shell", True)
+                # com1 = self.findChild(QLineEdit, "shell_lineedit_command1")
+                # com1.setText("echo 'Hello World'")
+                # com2 = self.findChild(QLineEdit, "shell_lineedit_command2")
+                # com2.setText("echo 'Hello World'")
+                # com3 = self.findChild(QLineEdit, "shell_lineedit_command3")
+                # com3.setText("echo 'Hello World'")
+            case s if s.startswith("playfile"):
+                pass
+                # self.setup_groupbox(self.actions_groupbox, "playfile", True)
+            case s if s.startswith("playapt"):
+                pass
+                # self.setup_groupbox(self.actions_groupbox, "playapt", True)
+                # self.findChild(QLineEdit, "playapt_lineedit_package").setText("btop")
+                # self.findChild(QCheckBox, "playapt_checkbox_update").setChecked(True)
+            case s if s.startswith("playufw"):
+                pass
+                # self.setup_groupbox(self.actions_groupbox, "playufw", True)
+                # self.findChild(QLineEdit, "playufw_lineedit_port").setText("420")
+                # self.findChild(QLineEdit, "playufw_lineedit_comment").setText("Test")
+            case s if s.startswith("file_button_link_service"):
+                self.file_lineedit_target.setText("/etc/sssd/sssd.conf")
+                self.service_lineedit_service_name.setText("sssd")
+                self.link_service()
+                return
+
+        self.ansible_execute()
 
     def on_file_selected(self, index):
         self.selected_file_path = self.model.filePath(index)
@@ -449,30 +483,29 @@ class MainWindow(QMainWindow):
         var_data = json.dumps(self.ad.vars[index.data()], indent=8)
         self.console_text(var_data, "black")
 
-    def comboboxes_changed(self):
+    def signal_combobox_index_changed(self):
         if self.manual_change:
             self.manual_change = False
-            choice = self.sender().currentText()
-            childrenlist = self.get_children(self.actions_layout)
+            prefix = None
             sender_name = self.sender().objectName()
+            choice = self.sender().currentText()
+
             match sender_name:
                 case "target_combobox_groups":
+                    self.ad.set_s_group(choice)
                     self.target_combobox_host.setCurrentIndex(-1)
                     self.tree.collapseAll()
                     self.expand_tree(choice)
-                    if len(childrenlist) > 0:
-                        prefix = childrenlist[0].split("_")[0]
-                        self.populate_play_fields_comboboxs(prefix)
+                    self.populate_play_fields_comboboxs()
                 case "target_combobox_host":
                     if choice != "":
-                        group = self.ad.s_project["hosts"][choice]["group"]
+                        self.ad.set_s_host(choice)
+                        group = self.ad.s_host["group"]
                         gi = self.target_combobox_groups.findText(group)
                         self.target_combobox_groups.setCurrentIndex(gi)
                         self.expand_tree(self.target_combobox_groups.currentText())
                         self.expand_tree(self.target_combobox_host.currentText())
-                        if len(childrenlist) > 0:
-                            prefix = childrenlist[0].split("_")[0]
-                            self.populate_play_fields_comboboxs(prefix)
+                        self.populate_play_fields_comboboxs()
                     else:
                         group = None
                         self.tree.collapseAll()
@@ -480,24 +513,30 @@ class MainWindow(QMainWindow):
                         self.target_combobox_groups.setCurrentIndex(-1)
 
                 case s if s.startswith("playfile_"):
-                    match s:
-                        case s if s.endswith("state"):
-                            if choice == "directory":
-                                self.modify_children("_recurse", "setVisible", True)
-                            else:
-                                self.modify_children("_recurse", "setVisible", False)
-                        case s if s.endswith("directory_vars"):
-                            self.modify_children("file_vars", "setCurrentIndex", -1)
+                    if s.endswith("state"):
+                        if choice == "directory":
+                            self.modify_children("_recurse", "setVisible", True)
+                        else:
+                            self.modify_children("_recurse", "setVisible", False)
 
-                        case s if s.endswith("file_vars"):
-                            self.modify_children(
-                                "directory_vars", "setCurrentIndex", -1
-                            )
+                    if s.endswith("directories"):
+                        self.modify_children("files", "setCurrentIndex", -1)
+
+                    if s.endswith("files"):
+                        self.modify_children("directories", "setCurrentIndex", -1)
+
+                case s if s.startswith("playapt"):
+                    if s.endswith("preset"):
+                        if choice != "":
+                            ex = ["playapt_combobox_preset"]
+                            self.modify_children("playapt_", "setDisabled", True, ex)
+                        else:
+                            self.modify_children("playapt_", "setDisabled", False)
             self.manual_change = True
 
     # endregion
 
-    # region Ansible
+    # region Ansible Execution
 
     def ansible_execute(self):
         flag = None
@@ -646,7 +685,7 @@ class MainWindow(QMainWindow):
 
     # endregion
 
-    # region Dialogs
+    # region Dialogs Handling
 
     def import_project_dialog(self):
         dlg = ImportProjectDialog(self.ad, self)
@@ -662,7 +701,7 @@ class MainWindow(QMainWindow):
                 msgBox.setText("You need to select a project directory")
                 msgBox.exec()
                 return
-            import_existing_project(self.ad, projectname, projectdir)
+            self.ad.import_existing_project(projectname, projectdir)
         else:
             pass
 
@@ -673,7 +712,7 @@ class MainWindow(QMainWindow):
             self.ad.set_s_project(selection)
             self.update_gui()
 
-    def sync_tree(self):
+    def dialog_sync_tree(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("Syncing")
         layout = QVBoxLayout()
@@ -687,7 +726,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(buttons)
         dlg.setLayout(layout)
         if dlg.exec():
-            sync_tree_with_file_system(self.ad)
+            self.ad.sync_tree_with_file_system()
             self.model.setRootPath(self.ad.s_project["path"])
             self.tree.setRootIndex(self.model.index(self.ad.s_project["path"]))
 
@@ -696,7 +735,7 @@ class MainWindow(QMainWindow):
         dlg.setFileMode(QFileDialog.FileMode.Directory)
         if dlg.exec():
             self.ad.sp_playbooks_directory = dlg.selectedFiles()[0]
-            sync_project_with_file_system(self.ad)
+            self.ad.sync_project_with_file_system()
 
     def simplge_message(self, message):
         msgBox = QMessageBox()
@@ -704,44 +743,41 @@ class MainWindow(QMainWindow):
         msgBox.exec()
 
     def link_service(self):
+        p = Printer("function", "link_service()")
         dlg = QDialog(self)
         dlg.setWindowTitle("Link Service")
         layout = QVBoxLayout()
-        linkservice_groupbox = QGroupBox()
-        self.setup_groupbox(linkservice_groupbox, "linkservice")
-        button = self.linkservice_button_link
+        dlg.setLayout(layout)
+        self.setup_groupbox(layout, "linkservice", "Link Service")
+
+        button = dlg.findChild(QPushButton, "linkservice_button_link")
         servicename = self.service_lineedit_service_name.text()
         button.clicked.connect(dlg.accept)
-
         file_path = self.file_lineedit_target.text()
 
-        self.console_text(f"Linking {servicename} to {file_path}", "black")
         if servicename == "":
-
-            layout.addWidget(linkservice_groupbox)
-            dlg.setLayout(layout)
             if dlg.exec():
-                servicename = dlg.findChild(
-                    QLineEdit, "linkservice_lineedit_service_name"
-                ).text()
-        else:
-            servicename = self.service_lineedit_service_name.text()
+                servicename = dlg.linkservice_lineedit_service.text()
 
         host = self.target_combobox_host.currentText()
         group = self.target_combobox_groups.currentText()
+
         tree_item = f"{group}{file_path}"
         if self.target_combobox_host.currentText() != "":
             tree_item = f"{group}/{host}{file_path}"
 
-        item_data = {"service": servicename}
-        print(f"Linking {servicename} to {tree_item}")
+        item_data = YamlManager(self.ad.s_project["tree_file"]).get_item(tree_item)
+        item_data["service"] = servicename
+
         YamlManager(self.ad.s_project["tree_file"]).create_or_update_item(
             tree_item, item_data
         )
+        self.console_text(f"Linked {servicename} to {file_path}", "black")
+        p.changedata(f"linked {servicename} to {tree_item}")
 
     # endregion
 
-    # region Helpers
+    # region Helpers and Utils
 
     def parse_full_file_path(self, project_path, file_path):
         cleaned_path = file_path.replace(project_path, "")
@@ -772,56 +808,6 @@ class MainWindow(QMainWindow):
 
         return file_info
 
-    def debug_button(self):
-        sender_name = self.sender().objectName()
-        self.console_text(f"DEBUG {sender_name}", "red")
-
-        group = self.target_combobox_groups
-        host = self.target_combobox_host
-        file_target = self.file_lineedit_target
-        service_target = self.service_lineedit_service_name
-
-        i = host.findText("peddle-cluster-login")
-        host.setCurrentIndex(i)
-        i = group.findText("login")
-        group.setCurrentIndex(i)
-
-        match sender_name:
-            case "file_button_send":
-                file_target.setText("/etc/anviltest.txt")
-            case "file_button_fetch":
-                file_target.setText("/etc/anviltest.txt")
-            case s if s.startswith("service"):
-                service_target.setText("rsyslog")
-            case s if s.startswith("shell"):
-                self.setup_groupbox(self.actions_groupbox, "shell", True)
-                com1 = self.findChild(QLineEdit, "shell_lineedit_command1")
-                com1.setText("echo 'Hello World'")
-                com2 = self.findChild(QLineEdit, "shell_lineedit_command2")
-                com2.setText("echo 'Hello World'")
-                com3 = self.findChild(QLineEdit, "shell_lineedit_command3")
-                com3.setText("echo 'Hello World'")
-            # case s if s.startswith("playfile"):
-            #     self.setup_groupbox(self.actions_groupbox, "playfile", True)
-            case s if s.startswith("playapt"):
-                self.setup_groupbox(self.actions_groupbox, "playapt", True)
-                self.findChild(QLineEdit, "playapt_lineedit_package").setText("btop")
-                self.findChild(QCheckBox, "playapt_checkbox_update").setChecked(True)
-            case s if s.startswith("playufw"):
-                self.setup_groupbox(self.actions_groupbox, "playufw", True)
-                self.findChild(QLineEdit, "playufw_lineedit_port").setText("420")
-                self.findChild(QLineEdit, "playufw_lineedit_comment").setText("Test")
-            case s if s.startswith("file_button_link_service"):
-                self.console_text("Linking service", "cyan")
-                i = host.findText("peddle-cluster-mgmt")
-                host.setCurrentIndex(i)
-                i = group.findText("management")
-                group.setCurrentIndex(i)
-                service_target.setText("munge")
-                file_target.setText("/etc/munge/munge.key")
-
-        self.ansible_execute()
-
     def console_text(self, text, color_name):
         color_map = {
             "red": QColor(192, 57, 43),
@@ -850,42 +836,62 @@ class MainWindow(QMainWindow):
         purpose: `setCurrentIndex`, `setText`, `setDisabled`, `setVisible`, `ReplaceItems`
         value: value to set
         """
+        single = getattr(self, name_keyword, None)
+        if single is not None:
+            children = [single]
+        else:
+            children = self.get_desired_class_attributes(
+                obj_name=name_keyword, ret_type=list[object]
+            )
 
-        children = self.get_desired_class_attributes(
-            obj_name=name_keyword, ret_type=list[object]
-        )
         for child in children:
-            if purpose == "setDisabled":
-                child.setDisabled(value)
+            if child.objectName() in exclude:
                 continue
-            elif purpose == "setVisible":
+            if isinstance(child, QFormLayout):
+                continue
+            elif type(child) in (QHBoxLayout, QVBoxLayout):
+                if purpose == "RemoveChildren":
+                    while child.count():
+                        item = child.takeAt(0)
+                        widget = item.widget()
+                        if widget is not None:
+                            widget.setParent(None)
+                    continue
+                # else:
+                #     print(child.objectName())
+                #     self.modify_children(child.objectName(), purpose)
+                #     continue
+
+            if purpose == "setVisible":
                 child.setVisible(value)
                 continue
 
             if isinstance(child, QComboBox):
+                if purpose == "setDisabled":
+                    child.setCurrentIndex(-1)
+                    child.setDisabled(value)
                 if purpose == "setCurrentIndex":
                     child.setCurrentIndex(value)
                 if purpose == "ReplaceItems":
                     child.clear()
                     child.addItems(value)
             elif isinstance(child, QLineEdit):
+                if purpose == "setDisabled":
+                    child.setText("")
+                    child.setDisabled(value)
                 if purpose == "setText":
                     child.setText(value)
             elif isinstance(child, QPushButton):
+                if purpose == "setDisabled":
+                    child.setDisabled(value)
                 if purpose == "connect":
                     child.clicked.connect(value)
                 if purpose == "setText":
                     child.setText(value)
-            elif isinstance(child, QHBoxLayout) or isinstance(child, QVBoxLayout):
-                pass
-            elif isinstance(child, QFormLayout):
-                if purpose == "deleteLater":
-                    for i in self.get_children(child):
-                        if i not in exclude:
-                            # getattr(self, i).deleteLater()
-                            print(f"Deleting {i}")
-                        else:
-                            print(f"Excluding {i}")
+            elif isinstance(child, QCheckBox):
+                if purpose == "setDisabled":
+                    child.setChecked(False)
+                    child.setDisabled(value)
 
     def expand_tree(self, search_term, root_index=None):
         if root_index is None:
@@ -940,82 +946,40 @@ class MainWindow(QMainWindow):
             if type(getattr(self, i)) in types:
                 atribs.append(i)
 
-        if prefix is None and obj_name is None:
-            ret_val = atribs
+        if obj_name is not None and prefix is None:
+            for i in atribs:
+                if obj_name in i:
+                    select_attribs.append(i)
+
         elif prefix is not None and obj_name is None:
             for i in atribs:
                 parts = i.split("_")
                 if parts[0] == prefix:
                     select_attribs.append(i)
-        elif obj_name is not None and prefix is None:
-            for i in atribs:
-                if obj_name in i:
-                    select_attribs.append(i)
 
+        if ret_type == list[object]:
+            return [getattr(self, i) for i in select_attribs]
         if ret_type == list[str]:
             return select_attribs
-        elif ret_type == list[object]:
-            return [getattr(self, i) for i in select_attribs]
 
-    def children_to_attr(self, parent):
-        # pdebug("children_to_attr()", "purple")
-        for child in parent.children():
-            child_name = child.objectName()
-            if child_name:
-                setattr(self, child_name, child)
-
-            if isinstance(child, (QHBoxLayout, QVBoxLayout, QFormLayout)):
-                self.children_to_attr(child)
-                # for i in range(child.count()):
-                #     item = child.itemAt(i)
-
-            if isinstance(parent, QFormLayout):
-                for i in range(parent.rowCount()):
-                    item1 = parent.itemAt(i, QFormLayout.ItemRole.LabelRole)
-                    item2 = parent.itemAt(i, QFormLayout.ItemRole.FieldRole)
-                    if item1 and item1.widget():
-                        widget = item1.widget()
-                        widget_name = widget.objectName()
-                        if widget_name:
-                            setattr(self, widget_name, widget)
-                        if isinstance(
-                            widget.layout(), (QHBoxLayout, QVBoxLayout, QFormLayout)
-                        ):
-                            self.children_to_attr(widget.layout())
-                    if item2 and item2.widget():
-                        widget = item2.widget()
-                        widget_name = widget.objectName()
-                        if widget_name:
-                            setattr(self, widget_name, widget)
-                        if isinstance(
-                            widget.layout(), (QHBoxLayout, QVBoxLayout, QFormLayout)
-                        ):
-                            self.children_to_attr(widget.layout())
-
-    def get_children(self, parent) -> list[str]:
-        # pdebug("Entering print_children()", "purple")
+    def get_children(self, obj) -> list[str]:
+        p = Printer("function", "get_children()")
         children = []
+        if isinstance(obj, str):
+            p.error("Parent is a string")
+            return children
 
-        def recursive_get_widget_names(widget):
-            """Recursively print the object names of child widgets if they have a set objectName"""
-            nonlocal children
-            for child in widget.children():
-                if isinstance(child, QWidget):  # Check if it is a QWidget
-                    if child.objectName() and not child.objectName().startswith("qt_"):
-                        children.append(child.objectName())
-                    recursive_get_widget_names(
-                        child
-                    )  # Recursive call to handle all children
+        if isinstance(obj, (QGroupBox, QWidget)):
+            obj = obj.layout()
 
-        if not isinstance(parent, str):
-            for i in range(parent.count()):
-                layout_item = parent.itemAt(i)
+        def recursive_get_widget_names(obj):
+            for i in range(obj.count()):
+                layout_item = obj.itemAt(i)
                 widget = layout_item.widget()
-                if isinstance(widget, QGroupBox):
-                    recursive_get_widget_names(widget)
-                elif isinstance(parent, QFormLayout):
-                    item1 = parent.itemAt(i, QFormLayout.ItemRole.LabelRole)
-                    item2 = parent.itemAt(i, QFormLayout.ItemRole.FieldRole)
+
+                if isinstance(obj, QFormLayout):
+                    item1 = obj.itemAt(i, QFormLayout.ItemRole.LabelRole)
+                    item2 = obj.itemAt(i, QFormLayout.ItemRole.FieldRole)
                     if item1 and item1.widget():
                         widget = item1.widget()
                         widget_name = widget.objectName()
@@ -1024,55 +988,86 @@ class MainWindow(QMainWindow):
                         widget = item2.widget()
                         widget_name = widget.objectName()
                         children.append(widget_name)
-                elif isinstance(parent, QHBoxLayout) or isinstance(parent, QVBoxLayout):
+                elif isinstance(obj, (QWidget, QGroupBox)):
                     children.append(widget.objectName())
+                elif isinstance(obj, (QHBoxLayout, QVBoxLayout)):
+                    children.append(widget.objectName())
+
+        recursive_get_widget_names(obj)
         children = list(filter(None, children))
         return children
 
-    def populate_play_fields_comboboxs(self, prefix: str):
+    def populate_play_fields_comboboxs(self):
+        self.modify_children("bottom_actions_layout", "RemoveChildren", True)
         group = self.target_combobox_groups.currentText()
+        top_actions_layout_children = self.get_children(self.top_actions_layout)
         if group == "":
-            self.modify_children("_vars", "setVisible", False)
+            return
+        if len(top_actions_layout_children) == 0:
             return
 
-        var_file_path = self.ad.s_project["groups"][group]["var_file_path"]
-        vars_content = YamlManager(var_file_path).get_all()
-        if vars_content is None:
-            self.modify_children("_vars", "setVisible", False)
+        prefix = top_actions_layout_children[0].split("_")[0]
+        if self.ad.s_project["groups"][group].get("var_file_path") is not None:
+            var_file_path = self.ad.s_project["groups"][group]["var_file_path"]
+            vars_content = YamlManager(var_file_path).get_all()
+            if vars_content is None:
+                return
+
+        var_names = list(vars_content.keys())
+        if len(var_names) == 0:
             return
 
-        self.modify_children("_vars", "setVisible", True)
-
+        var_list1 = []
+        var_list2 = []
         match prefix:
             case "playfile":
-                self.playfile_combobox_file_vars.clear()
-                self.playfile_combobox_directory_vars.clear()
-                self.playfile_combobox_file_vars.addItem("")
-                self.playfile_combobox_directory_vars.addItem("")
-                for i in vars_content.keys():
+                var_list1 = [s for s in var_names if s.endswith("_config_files")]
+                var_list2 = [s for s in var_names if s.endswith("_directories")]
+                if len(var_list1) == 0 and len(var_list2) == 0:
+                    return
 
-                    if i.endswith("_config_files"):
-                        self.playfile_combobox_file_vars.addItem(i)
-                    elif i.endswith("_directories"):
-                        self.playfile_combobox_directory_vars.addItem(i)
+                self.setup_groupbox(
+                    self.bottom_actions_layout, "playfile_vars", "Variables", 350
+                )
+                self.playfile_vars_combobox_files.clear()
+                self.playfile_vars_combobox_directories.clear()
+                self.playfile_vars_combobox_files.addItem("")
+                self.playfile_vars_combobox_directories.addItem("")
+
+                self.playfile_vars_combobox_files.addItems(var_list1)
+                self.playfile_vars_combobox_directories.addItems(var_list2)
 
                 self.playfile_combobox_state.setCurrentIndex(-1)
-                self.playfile_combobox_file_vars.setCurrentIndex(-1)
-                self.playfile_combobox_directory_vars.setCurrentIndex(-1)
+                self.playfile_vars_combobox_files.setCurrentIndex(-1)
+                self.playfile_vars_combobox_directories.setCurrentIndex(-1)
             case "playapt":
-                apt_vars = []
-                for i in vars_content.keys():
-                    if i.endswith("_packages"):
-                        apt_vars.append(i)
-                self.playapt_combobox_apt_vars.addItems(apt_vars)
+                var_list1 = [s for s in var_names if s.endswith("_packages")]
+                if len(var_list1) == 0:
+                    return
+
+                self.setup_groupbox(
+                    self.bottom_actions_layout, "playapt_vars", "Variables", 350
+                )
+                self.playapt_vars_combobox_package_list.clear()
+                self.playapt_vars_combobox_package_list.addItem("")
+                self.playapt_vars_combobox_package_list.addItems(var_list1)
+
             case "playufw":
-                rule_vars = []
-                for i in vars_content.keys():
-                    if i.endswith("_firewall_rules"):
-                        rule_vars.append(i)
-                self.populate_combobox("playufw", "Rule Vars", rule_vars)
+                var_list1 = [s for s in var_names if s.endswith("firewall_rules")]
+                if len(var_list1) == 0:
+                    return
+
+                self.setup_groupbox(
+                    self.bottom_actions_layout, "playufw_vars", "Variables", 350
+                )
+                self.playufw_vars_combobox_rule_list.clear()
+                self.playufw_vars_combobox_rule_list.addItem("")
+                self.playufw_vars_combobox_rule_list.addItems(var_list1)
 
     # endregion
+
+    def dummy(self):
+        pass
 
 
 def anvil_gui(ad: AnvilData):
