@@ -37,6 +37,13 @@ from core.gui_components import MakeSection
 
 
 class MainWindow(QMainWindow):
+    file_system_model: QFileSystemModel
+    tree_view: QTreeView
+    console_textedit: QTextEdit
+
+    groups_combobox: QComboBox
+    hosts_combobox: QComboBox
+
     def __init__(self, ad: AnvilData):
         super().__init__()
         qdarktheme.setup_theme()
@@ -392,8 +399,8 @@ class MainWindow(QMainWindow):
 
     def signal_connect_debug_button(self):
         sender_name = self.sender().objectName()
-        group = self.target_combobox_groups
-        host = self.target_combobox_host
+        group = self.groups_combobox
+        host = self.hosts_combobox
 
         i = host.findText("peddle-cluster-mgmt")
         host.setCurrentIndex(i)
@@ -439,7 +446,7 @@ class MainWindow(QMainWindow):
         self.ansible_execute()
 
     def on_file_selected(self, index):
-        self.selected_file_path = self.model.filePath(index)
+        self.selected_file_path = self.file_system_model.filePath(index)
         exception_list = [
             f"{self.ad.s_project['path']}/ansible.cfg",
             f"{self.ad.s_project['path']}/inventory.yml",
@@ -453,8 +460,8 @@ class MainWindow(QMainWindow):
             )
             if file_info is None:
                 return
-            hostcombo = self.target_combobox_host
-            groupcombo = self.target_combobox_groups
+            hostcombo = self.hosts_combobox
+            groupcombo = self.groups_combobox
             self.manual_change = False
             groupcombo.setCurrentIndex(groupcombo.findText(file_info["group"]))
 
@@ -493,7 +500,7 @@ class MainWindow(QMainWindow):
             match sender_name:
                 case "target_combobox_groups":
                     self.ad.set_s_group(choice)
-                    self.target_combobox_host.setCurrentIndex(-1)
+                    self.hosts_combobox.setCurrentIndex(-1)
                     self.tree.collapseAll()
                     self.expand_tree(choice)
                     self.populate_play_fields_comboboxs()
@@ -501,16 +508,16 @@ class MainWindow(QMainWindow):
                     if choice != "":
                         self.ad.set_s_host(choice)
                         group = self.ad.s_host["group"]
-                        gi = self.target_combobox_groups.findText(group)
-                        self.target_combobox_groups.setCurrentIndex(gi)
-                        self.expand_tree(self.target_combobox_groups.currentText())
-                        self.expand_tree(self.target_combobox_host.currentText())
+                        gi = self.groups_combobox.findText(group)
+                        self.groups_combobox.setCurrentIndex(gi)
+                        self.expand_tree(self.groups_combobox.currentText())
+                        self.expand_tree(self.hosts_combobox.currentText())
                         self.populate_play_fields_comboboxs()
                     else:
                         group = None
                         self.tree.collapseAll()
-                        self.target_combobox_host.setCurrentIndex(-1)
-                        self.target_combobox_groups.setCurrentIndex(-1)
+                        self.hosts_combobox.setCurrentIndex(-1)
+                        self.groups_combobox.setCurrentIndex(-1)
 
                 case s if s.startswith("playfile_"):
                     if s.endswith("state"):
@@ -545,8 +552,8 @@ class MainWindow(QMainWindow):
         phost = None
         sender_name = self.sender().objectName()
 
-        pgroup = self.target_combobox_groups.currentText()
-        phost = self.target_combobox_host.currentText()
+        pgroup = self.groups_combobox.currentText()
+        phost = self.hosts_combobox.currentText()
         if phost == "":
             phost = None
 
@@ -727,8 +734,10 @@ class MainWindow(QMainWindow):
         dlg.setLayout(layout)
         if dlg.exec():
             self.ad.sync_tree_with_file_system()
-            self.model.setRootPath(self.ad.s_project["path"])
-            self.tree.setRootIndex(self.model.index(self.ad.s_project["path"]))
+            self.file_system_model.setRootPath(self.ad.s_project["path"])
+            self.tree.setRootIndex(
+                self.file_system_model.index(self.ad.s_project["path"])
+            )
 
     def select_playbook_directory(self):
         dlg = QFileDialog()
@@ -759,11 +768,11 @@ class MainWindow(QMainWindow):
             if dlg.exec():
                 servicename = dlg.linkservice_lineedit_service.text()
 
-        host = self.target_combobox_host.currentText()
-        group = self.target_combobox_groups.currentText()
+        host = self.hosts_combobox.currentText()
+        group = self.groups_combobox.currentText()
 
         tree_item = f"{group}{file_path}"
-        if self.target_combobox_host.currentText() != "":
+        if self.hosts_combobox.currentText() != "":
             tree_item = f"{group}/{host}{file_path}"
 
         item_data = YamlManager(self.ad.s_project["tree_file"]).get_item(tree_item)
@@ -898,15 +907,15 @@ class MainWindow(QMainWindow):
             root_index = self.tree.rootIndex()
 
         def recursive_expand(search_term, root_index):
-            for row in range(self.model.rowCount(root_index)):
-                index = self.model.index(row, 0, root_index)
-                if self.model.data(index).lower() == search_term.lower():
+            for row in range(self.file_system_model.rowCount(root_index)):
+                index = self.file_system_model.index(row, 0, root_index)
+                if self.file_system_model.data(index).lower() == search_term.lower():
                     self.tree.expand(index)
                     parent = index.parent()
                     while parent.isValid():
                         self.tree.expand(parent)
                         parent = parent.parent()
-                if self.model.hasChildren(index):
+                if self.file_system_model.hasChildren(index):
                     recursive_expand(search_term, index)
 
         # Collapse all to ensure a consistent state before expanding
@@ -999,7 +1008,7 @@ class MainWindow(QMainWindow):
 
     def populate_play_fields_comboboxs(self):
         self.modify_children("bottom_actions_layout", "RemoveChildren", True)
-        group = self.target_combobox_groups.currentText()
+        group = self.groups_combobox.currentText()
         top_actions_layout_children = self.get_children(self.top_actions_layout)
         if group == "":
             return
