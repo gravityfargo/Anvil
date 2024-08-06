@@ -300,7 +300,7 @@ class MakeSection:
         """
         Create a QComboBox with the given options and objectName
 
-        objectName = `{prefix}_combobox_{purpose}`
+        objectName = `{obj_name}_combobox`
         """
         self.p.set("function", "qcombobox")
         combobox = QComboBox()
