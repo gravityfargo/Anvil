@@ -5,4 +5,7 @@
     "autoHide.autoHidePanel": false,
     "autoHide.autoHideSideBar": false,
     "autoHide.autoHideAuxiliaryBar": false,
+    "[ignore]": {
+        "editor.defaultFormatter": "foxundermoon.shell-format"
+    },
 }

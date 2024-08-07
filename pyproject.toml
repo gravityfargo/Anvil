@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Anvil"
+version = "2024.0.0"
+
+requires-python = ">=3.9"
+authors = [
+  {name = "Nathan Price", email = "pradyun@example.com"},
+]
+description = ""
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+keywords = [""]
+classifiers = [
+  "Programming Language :: Python"
+]
+dependencies = [
+  "ansible_runner",
+  "PySide6",
+  "pyyaml",
+  "PyQtDarkTheme-fork",
+]
+
+[project.urls]
+Homepage = "https://example.com"
+Documentation = "https://readthedocs.org"
+Repository = "https://github.com/me/spam.git"
+"Bug Tracker" = "https://github.com/me/spam/issues"
+Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+[project.scripts]
+spam-cli = "spam:main_cli"
+
+[tool.setuptools.packages.find]
+where = ["src"] 

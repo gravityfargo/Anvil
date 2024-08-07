@@ -29,9 +29,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor, QAction
 import qdarktheme
-from core.classes import AnvilData, YamlManager, Printer
+from Anvil.classes import AnvilData, YamlManager, Printer
 from core.dialogs import ImportProjectDialog, SelectProjectDialog
-from core.ansible import playbook
+from Anvil.ansible import playbook
 from core.worker import Worker
 from core.gui_components import MakeSection
 
@@ -58,35 +58,35 @@ class MainWindow(QMainWindow):
         bottom_layout = QVBoxLayout()
         bottom_layout.setObjectName("bottom_layout")
 
-        s1 = MakeSection(self, top_layout, QVBoxLayout(), "s1", True)
-        s1.insert_mode = True
-        s1.qgroupbox("target_groupbox", "Target Machines")
-        self.setup_widget(s1)
-        s1.set_active("s1_layout")
-        s1.insert(self.setup_file_tree())
+        # s1 = MakeSection(self, top_layout, QVBoxLayout(), "s1", True)
+        # s1.insert_mode = True
+        # s1.qgroupbox("target_groupbox", "Target Machines")
+        # self.setup_widget(s1)
+        # s1.set_active("s1_layout")
+        # s1.insert(self.setup_file_tree())
 
-        # Section 2, the tab area.
-        s2 = MakeSection(self, top_layout, QVBoxLayout(), "s2", True)
-        s2.insert_mode = True
-        s2.qtabwidget("s2_tabs")
+        # # Section 2, the tab area.
+        # s2 = MakeSection(self, top_layout, QVBoxLayout(), "s2", True)
+        # s2.insert_mode = True
+        # s2.qtabwidget("s2_tabs")
 
-        _, widget = s2.qwidget("quick_actions_tab", QVBoxLayout, "Quick Actions")
-        widget.setSpacing(20)
+        # _, widget = s2.qwidget("quick_actions_tab", QVBoxLayout, "Quick Actions")
+        # widget.setSpacing(20)
 
-        quick_tab = MakeSection(
-            self, s2.active_layout, QVBoxLayout(), "quick_tab", True
-        )
-        quick_tab.insert_mode = True
-        quick_tab.qgroupbox("quickfile", "File")
-        self.setup_widget(quick_tab)
-        quick_tab.last("layout")
-        quick_tab.qgroupbox("quickshell", "Shell")
-        self.setup_widget(quick_tab)
-        quick_tab.last("layout")
-        quick_tab.qgroupbox("quickservice", "Service")
-        self.setup_widget(quick_tab)
+        # quick_tab = MakeSection(
+        #     self, s2.active_layout, QVBoxLayout(), "quick_tab", True
+        # )
+        # quick_tab.insert_mode = True
+        # quick_tab.qgroupbox("quickfile", "File")
+        # self.setup_widget(quick_tab)
+        # quick_tab.last("layout")
+        # quick_tab.qgroupbox("quickshell", "Shell")
+        # self.setup_widget(quick_tab)
+        # quick_tab.last("layout")
+        # quick_tab.qgroupbox("quickservice", "Service")
+        # self.setup_widget(quick_tab)
 
-        s2.qwidget("file_tab", QVBoxLayout, "File")
+        # s2.qwidget("file_tab", QVBoxLayout, "File")
 
         # file_tab = MakeSection(self, top_layout, QVBoxLayout(), "file_tab")
 
@@ -98,12 +98,12 @@ class MainWindow(QMainWindow):
         # section.container_widget()
         # self.setup_groupbox(section, "")
 
-        console_section = MakeSection(self, top_layout, QVBoxLayout(), "console", True)
-        console_textedit = QTextEdit()
-        console_textedit.setMinimumWidth(400)
-        console_textedit.setReadOnly(True)
-        setattr(self, "console_textedit", console_textedit)
-        console_section.insert(console_textedit)
+        # console_section = MakeSection(self, top_layout, QVBoxLayout(), "console", True)
+        # console_textedit = QTextEdit()
+        # console_textedit.setMinimumWidth(400)
+        # console_textedit.setReadOnly(True)
+        # setattr(self, "console_textedit", console_textedit)
+        # console_section.insert(console_textedit)
 
         main_container = QWidget()
         window_layout = QVBoxLayout(main_container)
@@ -1084,3 +1084,8 @@ def anvil_gui(ad: AnvilData):
     window = MainWindow(ad)
     window.show()
     app.exec()
+
+
+def __main__():
+    ad = AnvilData()
+    anvil_gui(ad)

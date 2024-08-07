@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor, QAction
-from core.classes import Printer
+from Anvil.classes import Printer
 from core.helpers import print_attributes
 
 
