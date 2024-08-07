@@ -1,5 +1,4 @@
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
-from core.helpers import BreakException
 import sys, traceback
 
 
@@ -25,15 +24,8 @@ class Worker(QRunnable):
     def run(self):
         try:
             self.fn(*self.args, **self.kwargs)
-        except BreakException as e:
-            pcolor(f"{e}", "red", self.kwargs["progress_callback"])
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
-            pcolor(
-                f"{exctype} {value} {traceback.format_exc()}",
-                "red",
-                self.kwargs["progress_callback"],
-            )
         finally:
             self.signals.finished.emit()  # Done

@@ -1,7 +1,6 @@
 from ansible_runner import run
-from core.helpers import pcolor, pdebug
 import json , os
-from Anvil.classes import AnvilData
+from Anvil.utilities import AnvilData
 
 
 def ping(ad: AnvilData, host_pattern: str):
@@ -104,8 +103,8 @@ def playbook(
         case s if s.startswith("-r-file"):
             if host_name is None:
                 host_name = group_name
-            pcolor("ansible.builtin.file", "purple", progress_callback)
-            pcolor(f"Host: {host_name}", "purple", progress_callback)
+            
+            
             task = {
                 "ansible.builtin.file": {
                 },
@@ -211,8 +210,8 @@ def playbook(
                     task["ansible.builtin.copy"]["mode"] = target['manual']["mode"]
             play["tasks"].append(task)
     
-    # pdebug(json.dumps(target, indent=4))
-    pdebug(json.dumps(play, indent=4))
+    # 
+    
         
     r = run(
         private_data_dir=ad.anvil_temp_dir,
@@ -222,8 +221,8 @@ def playbook(
         playbook=play,
     )
 
-    # # pcolor("Stand-alone CLI Command", "cyan")
-    # # pcolor(f"\t{stand_alone_command}", "cyan")
+    # # 
+    # # 
         
     if r.status == "successful":
         if sender_flag == "-r-fetch":
@@ -300,11 +299,11 @@ def event_handler(progress_callback):
                 pass
             case "runner_on_start":
                 if event_data["event_data"]["task"] != last_message:
-                    pcolor(f"{event_data["event_data"]["task"]}", "black", pc)
+                    
                     last_message = event_data["event_data"]["task"]
             case "runner_on_ok":
-                pcolor("runner_on_ok", "green")
-                # pdebug(json.dumps(event_data, indent=4))
+                
+                # 
                 color = "green"
                 host = ""
                 res = event_data["event_data"]["res"]
@@ -314,50 +313,50 @@ def event_handler(progress_callback):
                 if "warnings" in res.keys():
                     for warning in res["warnings"]:
                         if warning is not None:
-                            pcolor(f"{host}: {warning}", "yellow", pc)
+                            pass
                     res.pop("warnings", None)
                 
                 if res.get("results") is not None:
                     for i in res["results"]:
                         i.pop("invocation", None)
-                        # pdebug(json.dumps(i, indent=4))
+                        # 
                         if i["changed"]:
                             color = "yellow"
                         if i.get("path") is not None:
-                            pcolor(f"{host}: {i["path"]}", color, pc)
+                            pass
                         if i.get("dest") is not None:
-                            pcolor(f"{host}: {i["dest"]}", color, pc)
+                            pass
                 else:
                     if res["changed"]:
                         color = "yellow"
                     if res.get("path") is not None:
-                        pcolor(f"{host}: {res["path"]}", color, pc)
+                        pass
                     if res.get("path") is not None:
-                        pcolor(f"{host}: {res["dest"]}", color, pc)
+                        pass
             case "runner_item_on_ok":
-                # pdebug(json.dumps(event_data["event_data"], indent=4))
-                pcolor("runner_item_on_ok", "green")
+                # 
+                
                 color = "green"
                 if event_data["event_data"]["res"]["changed"]:
                     color = "yellow"
                     
                 # if event_data["event_data"]["res"].get("path") is not None:
-                #     pcolor(event_data["event_data"]["res"]["path"], color, pc)       
+                #     
             case "runner_on_unreachable":
-                pcolor(event_data["event_data"]["res"]["msg"], "red", pc)
+                pass
             case "playbook_on_stats":
-                pcolor("Done.", "gray", pc)
+                pass
             case "runner_item_on_failed":
-                pcolor(event_data["event_data"]["res"]["msg"], "red", pc)
+                pass
             case "runner_on_failed":
-                pcolor(event_data["event_data"]["res"]["msg"], "red", pc)
-                pcolor("runner_on_failed", "red")
-                pdebug(json.dumps(event_data["event_data"], indent=4))
+                pass
+                
+                
             case "verbose":
                 pass  # Explicitly do nothing for 'verbose'
             case _:
-                pcolor(json.dumps(event_data, indent=4), "red", pc)
-                pdebug(event_data)
+                pass
+                
     return handler
 
 def status_handler(status_data, runner_config):

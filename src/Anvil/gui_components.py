@@ -26,8 +26,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor, QAction
-from Anvil.classes import Printer
-from core.helpers import print_attributes
+from Anvil.utilities import Printer
 
 
 class MakeSection:
@@ -348,4 +347,5 @@ class MakeSection:
         return label
 
     def info(self):
-        print_attributes(self)
+        # print_attributes(self)
+        pass

@@ -29,11 +29,11 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor, QAction
 import qdarktheme
-from Anvil.classes import AnvilData, YamlManager, Printer
-from core.dialogs import ImportProjectDialog, SelectProjectDialog
+from Anvil.utilities import AnvilData, YamlManager, Printer
+from Anvil.dialogs import ImportProjectDialog, SelectProjectDialog
 from Anvil.ansible import playbook
-from core.worker import Worker
-from core.gui_components import MakeSection
+from Anvil.worker import Worker
+from Anvil.gui_components import MakeSection
 
 
 class MainWindow(QMainWindow):

@@ -6,7 +6,7 @@ from core.file_utils import (
     import_existing_project,
     sync_project_with_file_system,
 )
-from Anvil.classes import AnvilData
+from Anvil.utilities import AnvilData
 
 from Anvil.ansible import ping, playbook
 from os import path

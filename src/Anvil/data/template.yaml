@@ -1,5 +1,5 @@
 options:
-  config_file: core/anvil.yaml
+  config_file: anvil.yaml
   temp_dir: /tmp/anvil
   pwd:
 debug:
