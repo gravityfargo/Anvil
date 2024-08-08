@@ -2,8 +2,8 @@
     "version": "2.0.0",
     "presentation": {
         "echo": false,
-        "reveal": "always",
-        "focus": true,
+        "reveal": "silent",
+        "focus": false,
         "panel": "shared",
         "showReuseMessage": false,
         "clear": true,
@@ -12,7 +12,7 @@
         {
             "type": "shell",
             "label": "0. Run",
-            "command": "./anvil.py",
+            "command": "${command:python.interpreterPath} src/anvil gui",
         },
     ]
 }
