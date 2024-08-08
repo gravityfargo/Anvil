@@ -1,4 +1,6 @@
 __pycache__/
 testfolder/
 config/anvil.yaml
-src/Anvil.egg-info/
+src/anvil.egg-info/
+instance/
+config.yaml
