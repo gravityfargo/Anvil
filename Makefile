@@ -1,2 +1,6 @@
+install:
+	pip install --editable .
 run:
-	python3 src/Anvil/anvil.py
+	anvil gui
+clean:
+	rm -rf build dist *.egg-info
