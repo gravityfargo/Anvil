@@ -1,9 +1,8 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools", "setuptools_scm"]
 
 [project]
-name = "Anvil"
+name = "anvil"
 version = "2024.0.0"
 
 requires-python = ">=3.9"
@@ -22,6 +21,7 @@ dependencies = [
   "PySide6",
   "pyyaml",
   "PyQtDarkTheme-fork",
+  "click"
 ]
 
 [project.urls]
@@ -32,7 +32,4 @@ Repository = "https://github.com/me/spam.git"
 Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
 
 [project.scripts]
-spam-cli = "spam:main_cli"
-
-[tool.setuptools.packages.find]
-where = ["src"] 
+anvil = "anvil:anvil"
