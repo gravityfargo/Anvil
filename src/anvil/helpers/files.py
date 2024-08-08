@@ -5,15 +5,17 @@ This module contains functions for managing files and directories.
 import os
 
 
-def check_dir(dir_path: str = None, create: bool = False) -> None:
+def check_dir(dir_path: str = None, create: bool = False) -> bool:
     """
-    Check if a directory exists. If it does not exist, create it or raise FileNotFoundError.
+    Check/create a directory.
     """
     if not os.path.exists(dir_path):
         if create:
             create_dir(dir_path)
+            return True
         else:
-            raise FileNotFoundError(f"Directory not found: {dir_path}")
+            return False
+    return True
 
 
 def check_file(file_path: str = None, create: bool = False) -> bool:

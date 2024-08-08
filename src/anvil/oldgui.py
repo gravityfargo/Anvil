@@ -29,188 +29,14 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor, QAction
 import qdarktheme
-from Anvil.utilities import AnvilData, YamlManager, Printer
-from Anvil.dialogs import ImportProjectDialog, SelectProjectDialog
-from Anvil.ansible import playbook
-from Anvil.worker import Worker
-from Anvil.gui_components import MakeSection
+from anvil.utilities import AnvilData, YamlManager, Printer
+from anvil.dialogs import ImportProjectDialog, SelectProjectDialog
+from anvil.ansible import playbook
+from anvil.worker import Worker
+from anvil.gui_components import MakeSection
 
 
 class MainWindow(QMainWindow):
-    file_system_model: QFileSystemModel
-    tree_view: QTreeView
-    console_textedit: QTextEdit
-
-    groups_combobox: QComboBox
-    hosts_combobox: QComboBox
-
-    def __init__(self, ad: AnvilData):
-        super().__init__()
-        qdarktheme.setup_theme()
-        self.ad = ad
-        self.manual_change = True
-        self.thread_pool = QThreadPool()
-        self.setWindowTitle("Anvil")
-        self.p = Printer("class", "MainWindow")
-
-        top_layout = QHBoxLayout()
-        top_layout.setObjectName("top_layout")
-        bottom_layout = QVBoxLayout()
-        bottom_layout.setObjectName("bottom_layout")
-
-        # s1 = MakeSection(self, top_layout, QVBoxLayout(), "s1", True)
-        # s1.insert_mode = True
-        # s1.qgroupbox("target_groupbox", "Target Machines")
-        # self.setup_widget(s1)
-        # s1.set_active("s1_layout")
-        # s1.insert(self.setup_file_tree())
-
-        # # Section 2, the tab area.
-        # s2 = MakeSection(self, top_layout, QVBoxLayout(), "s2", True)
-        # s2.insert_mode = True
-        # s2.qtabwidget("s2_tabs")
-
-        # _, widget = s2.qwidget("quick_actions_tab", QVBoxLayout, "Quick Actions")
-        # widget.setSpacing(20)
-
-        # quick_tab = MakeSection(
-        #     self, s2.active_layout, QVBoxLayout(), "quick_tab", True
-        # )
-        # quick_tab.insert_mode = True
-        # quick_tab.qgroupbox("quickfile", "File")
-        # self.setup_widget(quick_tab)
-        # quick_tab.last("layout")
-        # quick_tab.qgroupbox("quickshell", "Shell")
-        # self.setup_widget(quick_tab)
-        # quick_tab.last("layout")
-        # quick_tab.qgroupbox("quickservice", "Service")
-        # self.setup_widget(quick_tab)
-
-        # s2.qwidget("file_tab", QVBoxLayout, "File")
-
-        # file_tab = MakeSection(self, top_layout, QVBoxLayout(), "file_tab")
-
-        # section2.qwidget("tab_shell", "ansible.builtin.shell")
-        # section2.last("layout")
-        # section2.qwidget("tab_apt", "ansible.builtin.apt")
-        # section2.last("layout")
-        # section2.qwidget("tab_ufw", "community.general.ufw")
-        # section.container_widget()
-        # self.setup_groupbox(section, "")
-
-        # console_section = MakeSection(self, top_layout, QVBoxLayout(), "console", True)
-        # console_textedit = QTextEdit()
-        # console_textedit.setMinimumWidth(400)
-        # console_textedit.setReadOnly(True)
-        # setattr(self, "console_textedit", console_textedit)
-        # console_section.insert(console_textedit)
-
-        main_container = QWidget()
-        window_layout = QVBoxLayout(main_container)
-        window_layout.addLayout(top_layout)
-
-        self.setCentralWidget(main_container)
-        # quit()
-        # self.setup_menubar()
-        # self.showMaximized()
-
-    # region GUI_Setup
-
-    #             # top_actions_layout = QVBoxLayout()
-    #             # top_actions_layout.setObjectName("top_actions_layout")
-    #             # setattr(self, "top_actions_layout", top_actions_layout)
-    #             # bottom_actions_layout = QVBoxLayout()
-    #             # bottom_actions_layout.setObjectName("bottom_actions_layout")
-    #             # setattr(self, "bottom_actions_layout", bottom_actions_layout)
-    #             # self.setup_groupbox(top_actions_layout, "empty", "Action Area", 350)
-    #             # layout.addLayout(top_actions_layout)
-    #             # layout.addLayout(bottom_actions_layout)
-
-    def setup_menubar(self):
-        menu = self.menuBar()
-        prj_menu = menu.addMenu("Project Settings")
-        dbg_menu = menu.addMenu("Debug")
-
-        self.create_qaction(prj_menu, "Import a Project", self.import_project_dialog)
-        self.create_qaction(prj_menu, "Select a Project", self.select_project_dialog)
-        self.create_qaction(
-            prj_menu, "Select Playbook Directory", self.select_playbook_directory
-        )
-
-        self.create_qaction(prj_menu, "Sync Tree", self.dialog_sync_tree)
-        self.create_qaction(
-            dbg_menu,
-            "File Send",
-            self.signal_connect_debug_button,
-            "file_button_send",
-        )
-        self.create_qaction(
-            dbg_menu,
-            "File Fetch",
-            self.signal_connect_debug_button,
-            "file_button_fetch",
-        )
-        self.create_qaction(
-            dbg_menu,
-            "Service Restart",
-            self.signal_connect_debug_button,
-            "service_button_restart",
-        )
-        self.create_qaction(
-            dbg_menu,
-            "Service Start",
-            self.signal_connect_debug_button,
-            "service_button_start",
-        )
-        self.create_qaction(
-            dbg_menu,
-            "Service Stop",
-            self.signal_connect_debug_button,
-            "service_button_stop",
-        )
-        self.create_qaction(
-            dbg_menu,
-            "Files",
-            self.signal_connect_debug_button,
-            "playfile_button_create",
-        )
-        self.create_qaction(
-            dbg_menu,
-            "Apt",
-            self.signal_connect_debug_button,
-            "playapt_button_install",
-        )
-        self.create_qaction(
-            dbg_menu, "UFW", self.signal_connect_debug_button, "playufw_button_allow"
-        )
-        self.create_qaction(
-            dbg_menu, "Shell", self.signal_connect_debug_button, "shell_button_run"
-        )
-        self.create_qaction(
-            dbg_menu,
-            "Link Service",
-            self.signal_connect_debug_button,
-            "file_button_link_service",
-        )
-
-    def setup_file_tree(self) -> QTreeView:
-        model = QFileSystemModel()
-        model.setRootPath(self.ad.s_project["path"])
-        tree = QTreeView()
-        tree.setModel(model)
-        tree.setRootIndex(model.index(self.ad.s_project["path"]))
-        tree.setColumnWidth(0, 300)
-        tree.clicked.connect(self.on_file_selected)
-        tree.hideColumn(1)
-        tree.hideColumn(2)
-        tree.hideColumn(3)
-        setattr(self, "file_system_model", model)
-        setattr(self, "tree_view", tree)
-        tree.setMinimumWidth(350)
-        tree.setMaximumWidth(400)
-        tree.setObjectName("file_tree")
-        return tree
-
     def setup_widget(
         self,
         ms: MakeSection,
@@ -227,25 +53,6 @@ class MainWindow(QMainWindow):
         bl2.setContentsMargins(0, 0, 0, 0)
 
         match active_widget:
-            case "target_groupbox":
-                ms.qcombobox("groups", "Groups", self.ad.s_project["groups_list"])
-                ms.qcombobox("hosts", "Hosts", self.ad.s_project["hosts_list"])
-            case "quickfile":
-                ms.qlineedit("quickfile_target", "/etc/hosts", "Target File")
-                ms.qlayout(QHBoxLayout)
-                ms.qpushbutton("quickfile_fetch", "Fetch")
-                ms.qpushbutton("quickfile_send", "Send")
-                ms.last("layout")
-                ms.qlayout(QHBoxLayout)
-                ms.qpushbutton("quickfile_linkservice", "Link Service")
-                ms.qpushbutton("quickfile_linkcommands", "Link Commands")
-                ms.last("layout")
-            case "quickshell":
-                ms.qlineedit("quickshell_1", "echo 'Hello'")
-                ms.qlineedit("quickshell_2", "echo 'World'")
-                ms.qlineedit("quickshell_3", "echo '!'")
-                ms.qpushbutton("quickshell_run", "Run")
-                ms.qspaceritem()
             case "quickservice":
                 ms.qlineedit("service_name", "rsyslog")
                 ms.qlayout(QHBoxLayout)
@@ -257,7 +64,6 @@ class MainWindow(QMainWindow):
                 ms.qpushbutton("quickservice_enable", "Enable")
                 ms.qpushbutton("quickservice_disable", "Disable")
                 ms.last("layout")
-        self.p.ok(ms.active_widget.objectName())
 
         #     case "playfile":
         #         state = ["file", "absent", "directory", "touch"]
@@ -1074,18 +880,3 @@ class MainWindow(QMainWindow):
                 self.playufw_vars_combobox_rule_list.addItems(var_list1)
 
     # endregion
-
-    def dummy(self):
-        pass
-
-
-def anvil_gui(ad: AnvilData):
-    app = QApplication(sys.argv)
-    window = MainWindow(ad)
-    window.show()
-    app.exec()
-
-
-def __main__():
-    ad = AnvilData()
-    anvil_gui(ad)

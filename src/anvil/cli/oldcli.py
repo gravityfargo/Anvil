@@ -1,53 +1,7 @@
-from core.helpers import ConditionChecks, HelpMessage, BreakException
 import traceback, readline, sys
-from core.helpers import pcolor, pdebug
-from core.file_utils import (
-    YamlManager,
-    import_existing_project,
-    sync_project_with_file_system,
-)
-from Anvil.utilities import AnvilData
-
-from Anvil.ansible import ping, playbook
+from anvil.ansible import ping, playbook
 from os import path
 import subprocess
-
-
-def anvil_cli(ad: AnvilData):
-    pure_args = sys.argv[1:]
-    if pure_args[0] == "-h" or pure_args[0] == "--help":
-        pcolor("Future Help Text", "cyan")
-        quit()
-    elif pure_args[0] == "cli":
-        pass
-    else:
-        user_input_parser(ad, pure_args)
-        quit()
-
-    pcolor("Anvil CLI", "purple")
-    pcolor("-------------------------------------------------", "purple")
-    if ad.s_project is not None:
-        pcolor(f"Current Project: \t{ad.s_project}", "purple")
-        pcolor(f"Current Host: \t\t{ad.s_host}", "purple")
-
-    while True:
-        try:
-            command = input("anvil> ")
-
-            if not user_input_parser(ad, command):
-                break
-            save_command_to_history(command)
-
-        except KeyboardInterrupt:
-            print("\nExiting.")
-            break
-        except EOFError:
-            print("\nExiting.")
-            break
-
-
-def save_command_to_history(command):
-    readline.add_history(command)
 
 
 def user_input_parser(ad: AnvilData, argument):
@@ -288,46 +242,6 @@ def user_input_parser(ad: AnvilData, argument):
 
             case "q":
                 return False
-
-            case "-h" | "--help" | "?":
-                pcolor("Arguments: ", "purple")
-
-                pcolor("-s Set", "red")
-                pcolor("\t-sp\t Set Project", "cyan")
-                pcolor("\t-sh\t Set Host", "cyan")
-
-                pcolor("-c Create", "red")
-                pcolor("\t-cp\t Create Project", "cyan")
-
-                pcolor("-d Delete", "red")
-                pcolor("\t-dg <group name>\t Delete Specified Group", "cyan")
-
-                pcolor("-i Import", "red")
-                pcolor("\t-ip\t Import Project", "cyan")
-
-                pcolor("-l List", "red")
-                pcolor("\t-lg\t List Host Groups", "cyan")
-                pcolor("\t-lg\t List All Hosts", "cyan")
-                pcolor("\t-lp\t List Projects", "cyan")
-
-                pcolor("-u Update", "red")
-                pcolor("\t-u\t Update Selected Project", "cyan")
-
-                pcolor("-p Ping", "red")
-                pcolor("\t-pa\t Ping All Hosts", "cyan")
-                pcolor("\t-ph <host_name>", "cyan")
-                pcolor("\t-pg <group_name>", "cyan")
-
-                pcolor("-r Remote", "red")
-                pcolor("\t-rf\t Fetch File from Selected Host", "cyan")
-                pcolor("\t-rs\t Send File to Selected Host", "cyan")
-
-                pcolor("\t-rcom <command>\t Run a command on Selected Host", "cyan")
-
-                pcolor("i Info", "red")
-                pcolor("\ti\t Info Set Vars", "cyan")
-
-                pcolor("q Quit", "red")
 
     except BreakException as e:
         pcolor(f"{e}", "red")

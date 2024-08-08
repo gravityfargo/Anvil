@@ -1,46 +1,4 @@
-import os, json
-import filemanager
-
-
-class AnvilData:
-    """
-    All the data for the Anvil application.
-    """
-
-    class options:
-        """General Options"""
-
-        pwd = os.getcwd()
-        config_path = os.path.join(pwd, "config.yaml")
-        temp_dir = "/tmp/anvil"
-
-        @staticmethod
-        def dict():
-            return {
-                "pwd": AnvilData.options.pwd,
-                "config_path": AnvilData.options.config_path,
-                "temp_dir": AnvilData.options.temp_dir,
-            }
-
-    debug: dict = {}
-    projects: dict = {}
-    s_project: dict = {}
-    s_group: dict = {}
-    s_host: dict = {}
-
-    @staticmethod
-    def dict():
-        return {
-            "options": AnvilData.options.dict(),
-            "debug": AnvilData.debug,
-            "projects": AnvilData.projects,
-            "s_project": AnvilData.s_project,
-            "s_group": AnvilData.s_group,
-            "s_host": AnvilData.s_host,
-        }
-
-
-COMMANDS = {
+DEFAULT_CLI_ARGS = {
     "-s": {
         "DESC": "Select a Project, Group, and or Host for manipulation",
         "USEAGE": "-sp <project_name>\n -sh <host_name>\n -sg <group_name>",
@@ -117,4 +75,21 @@ COMMANDS = {
             "USEAGE": "-r-file-copy <target_file>",
         },
     },
+    "generic_args": (
+        (
+            ("--version",),
+            {"action": "version", "version": "0.0.1"},
+        ),
+        (
+            ("--debug",),
+            {
+                "action": "store_true",
+                "help": "enable ansible-runner debug output logging (default=False)",
+            },
+        ),
+        (
+            ("--logfile",),
+            {"help": "log output messages to a file (default=None)"},
+        ),
+    ),
 }
