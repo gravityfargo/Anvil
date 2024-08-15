@@ -4,3 +4,5 @@ config/anvil.yaml
 src/anvil.egg-info/
 instance/
 config.yaml
+.venv/
+.env
