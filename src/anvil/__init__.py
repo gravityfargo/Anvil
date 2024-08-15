@@ -1,15 +1,17 @@
-import click
-from anvil.config import init
+from os import getenv
+
+from dotenv import load_dotenv
+
+from anvil.config import CONFIG_FILE, DATA_DIR, TEMP_DIR, ProjectData
 from anvil.gui import gui_main
+from anvil.helpers import configutils, filemanager
 
-init()
 
-
-@click.group(
-    help="Anvil is a tool for managing and interacting with remote hosts using Ansible."
-)
 def anvil():
-    pass
-
-
-anvil.add_command(gui_main)
+    load_dotenv()
+    filemanager.check_dir(TEMP_DIR, create=True)
+    filemanager.check_dir(DATA_DIR, create=True)
+    filemanager.check_file(CONFIG_FILE, create=True)
+    configutils.validate_config(ProjectData)
+    ProjectData.verify_projects()
+    gui_main()
