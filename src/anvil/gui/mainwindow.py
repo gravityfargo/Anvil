@@ -1,15 +1,6 @@
 import qdarktheme
 from PySide6.QtCore import QThreadPool
-from PySide6.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QLayout,
-    QMainWindow,
-    QMessageBox,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QApplication, QLayout, QMainWindow, QMessageBox
 
 from anvil.config import ProjectData
 
@@ -21,7 +12,6 @@ from .create_components import (
     create_QTabWidget,
     create_QTreeView,
     create_QVBoxLayout,
-    create_QWidget,
 )
 from .dialogs import ImportProjectDialog, SelectProjectDialog
 from .inventorywindow import InventoryWindow

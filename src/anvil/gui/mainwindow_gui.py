@@ -93,7 +93,7 @@ def quickactions_systemd(target_layout: QVBoxLayout):
 
 
 def setup_files_tab(parent_tabwidget: QTabWidget):
-    widget, layout = create_QWidget("files_tab", QVBoxLayout())
+    widget, layout = create_QWidget("files_tab", QVBoxLayout)
     parent_tabwidget.addTab(widget, "Files")
 
     groupbox, glayout = create_QGroupBox("files_tab", "Files")
