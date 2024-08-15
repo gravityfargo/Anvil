@@ -1,11 +1,23 @@
 {
-    "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true,
-    "tasksStatusbar.taskLabelFilter": "[0-9]+.+",
-    "autoHide.autoHidePanel": false,
-    "autoHide.autoHideSideBar": false,
     "autoHide.autoHideAuxiliaryBar": false,
-    "[ignore]": {
-        "editor.defaultFormatter": "foxundermoon.shell-format"
+    "autoHide.autoHideReferences": true,
+    "files.associations": {
+        "envvars": "yaml",
+        "extravars": "yaml",
+        "passwords": "yaml",
+        "cmdline": "yaml",
+        "settings": "yaml",
+        "ssh_key": "yaml",
+        "hosts": "yaml",
     },
+    "cSpell.words": [
+        "groupbox",
+        "invtarget",
+        "qdarktheme"
+    ],
+    "cSpell.enableFiletypes": [
+        "!python"
+    ],
+    "python.analysis.typeCheckingMode": "basic"
 }

@@ -5,11 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Bug Deez Nuts",
+            "name": "Anvil Debug",
             "type": "debugpy",
             "request": "launch",
-            "program": "anvil.py",
-            "console": "integratedTerminal"
+            "program": "${workspaceFolder}/src/anvil/__main__.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/.venv/bin/python",
         }
     ]
 }
