@@ -14,7 +14,7 @@ class Project:
         self.file_count = 0
         self.tree_file = path.join(self.root_dir, "tree.yaml")
         self.inventory_path = path.join(self.root_dir, "inventory/hosts")
-        self.inventory = Inventory(self.inventory_path)
+        self.inventory = Inventory(self.inventory_path, self.root_dir)
 
     def setup(self):
         dir_structure = [
@@ -24,11 +24,11 @@ class Project:
             "inventory/host_vars",
             "project",
             "project/roles",
+            "files",
         ]
 
         files = [
             "env/envvars",
-            "env/extravars",
             "env/passwords",
             "env/cmdline",
             "env/settings",

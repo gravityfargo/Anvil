@@ -1,120 +1,202 @@
-from PySide6.QtWidgets import QTabWidget, QVBoxLayout
+from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QTabWidget, QVBoxLayout, QWidget
 
 from .create_components import (
+    create_QAction,
     create_QComboBox,
     create_QGroupBox,
     create_QHBoxLayout,
     create_QLineEdit,
+    create_QListWidget,
+    create_QProgressBar,
     create_QPushButton,
+    create_QTabWidget,
+    create_QTextEdit,
+    create_QTreeView,
+    create_QVBoxLayout,
     create_QWidget,
 )
 
 
-def setup_quickactions_tab(parent_tabwidget: QTabWidget):
-    widget, layout = create_QWidget("quickactions_tab", QVBoxLayout)
-    parent_tabwidget.addTab(widget, "Quick Actions")
-    # files
-    quickactions_files(layout)
-    # Commands
-    quickactions_shell(layout)
-    # Systemd
-    quickactions_systemd(layout)
+class MainWindow_UI(QWidget):
 
+    def init_ui(self, MainWindow: QMainWindow):
+        self.MainWindow = MainWindow
 
-def quickactions_files(parent_layout: QVBoxLayout):
-    quick_file_groupbox, quick_file_groupbox_layout = create_QGroupBox("quick_file", "Send / Fetch Files")
-    target_file = create_QLineEdit("target_file_lineedit", "/etc/fstab")
+        MainWindow.setWindowTitle("Anvil")
 
-    button_layout = create_QHBoxLayout("quick_file_btn_layout1")
-    fetch_file_btn = create_QPushButton("fetch_file_btn", "Fetch File")
-    send_file_button = create_QPushButton("send_file_btn", "Send File")
-    button_layout.addWidget(fetch_file_btn)
-    button_layout.addWidget(send_file_button)
+        self.menu = MainWindow.menuBar()
+        widget, mainlayout = create_QWidget("main", QHBoxLayout)
+        MainWindow.setMinimumWidth(900)
+        MainWindow.setCentralWidget(widget)
 
-    quick_file_groupbox_layout.addRow("Target", target_file)
-    quick_file_groupbox_layout.addRow(button_layout)
+        section_one_layout = create_QVBoxLayout("section_one_layout")
+        section_two_layout = create_QVBoxLayout("section_two_layout")
+        section_three_layout = create_QVBoxLayout("section_two")
+        section_four_layout = create_QVBoxLayout("section_four_layout")
 
-    parent_layout.addWidget(quick_file_groupbox)
+        mainlayout.addLayout(section_one_layout)
+        mainlayout.addLayout(section_two_layout)
+        mainlayout.addLayout(section_three_layout)
+        mainlayout.addLayout(section_four_layout)
 
+        self.section_one(section_one_layout)
+        self.section_two(section_two_layout)
+        self.section_three(section_three_layout)
+        self.section_four(section_four_layout)
+        self.setup_menubar()
 
-def quickactions_shell(target_layout: QVBoxLayout):
-    groupbox, layout = create_QGroupBox("quick_shell", "Send Commands", QVBoxLayout)
+    def section_one(self, parent_layout: QVBoxLayout):
+        hgroupbox, hlayout = create_QGroupBox("hosts", "Hosts", QVBoxLayout)
+        hosts_list = create_QListWidget("hosts_list")
+        hlayout.addWidget(hosts_list)
 
-    quickshell_1 = create_QLineEdit("quickshell_1", "ls -la")
-    quickshell_2 = create_QLineEdit("quickshell_2", "df -h")
-    quickshell_3 = create_QLineEdit("quickshell_3", "uptime")
-    quickshell_run_button = create_QPushButton("quickshell_run_button", "Run")
-    layout.addWidget(quickshell_1)
-    layout.addWidget(quickshell_2)
-    layout.addWidget(quickshell_3)
-    layout.addWidget(quickshell_run_button)
-    target_layout.addWidget(groupbox)
+        ggroupbox, glayout = create_QGroupBox("groups", "Groups", QVBoxLayout)
+        groups_list = create_QListWidget("group_list")
+        glayout.addWidget(groups_list)
 
+        parent_layout.addWidget(hgroupbox)
+        parent_layout.addWidget(ggroupbox)
 
-def quickactions_systemd(target_layout: QVBoxLayout):
-    """
-    - `quick_systemd_groupbox`, `quick_systemd_groupbox_layout`
+        self.hosts_list = hosts_list
+        self.groups_list = groups_list
 
-    QLineEdit
-    - `quick_systemd_service`, `service_start`
+    def section_two(self, parent_layout: QVBoxLayout):
+        tree, model = create_QTreeView("file_tree")
+        parent_layout.addWidget(tree)
+        self.tree = tree
+        self.model = model
 
-    QPushButton
-    - `quick_systemd_service_start`
-    - `quick_systemd_service_stop`
-    - `quick_systemd_service_restart`
-    - `quick_systemd_service_disable`
-    - `quick_systemd_service_enable`
-    - `quick_systemd_service_mask`
-    """
-    groupbox, layout = create_QGroupBox("quick_systemd", "Systemd", QVBoxLayout)
-    target_layout.addWidget(groupbox)
-    quick_systemd_service = create_QLineEdit("quick_systemd_service", "nginx")
-    layout.addWidget(quick_systemd_service)
+    def section_three(self, target_layout: QVBoxLayout):
+        section_two_tabs = create_QTabWidget("section_two_tabs", 450)
+        target_layout.addWidget(section_two_tabs)
 
-    button_layout = create_QHBoxLayout()
-    service_start = create_QPushButton("quick_systemd_service_start", "Start")
-    service_stop = create_QPushButton("quick_systemd_service_stop", "Stop")
-    service_restart = create_QPushButton("quick_systemd_service_restart", "Restart")
-    button_layout.addWidget(service_start)
-    button_layout.addWidget(service_stop)
-    button_layout.addWidget(service_restart)
-    layout.addLayout(button_layout)
+        self.setup_quickactions_tab(section_two_tabs)
+        # setup_files_tab(section_two_tabs)
 
-    button_layout = create_QHBoxLayout()
-    service_disable = create_QPushButton("quick_systemd_service_disable", "Disable")
-    service_enable = create_QPushButton("quick_systemd_service_enable", "Enable")
-    service_mask = create_QPushButton("quick_systemd_service_mask", "Mask")
-    button_layout.addWidget(service_disable)
-    button_layout.addWidget(service_enable)
-    button_layout.addWidget(service_mask)
-    layout.addLayout(button_layout)
+    def section_four(self, parent_layout: QVBoxLayout):
+        console = create_QTextEdit("console")
+        parent_layout.addWidget(console)
+        console.setMinimumWidth(550)
+        console.setReadOnly(True)
 
-    return groupbox
+        progress_bar = create_QProgressBar("progress_bar")
+        parent_layout.addWidget(progress_bar)
 
+        self.console = console
+        self.progress_bar = progress_bar
 
-def setup_files_tab(parent_tabwidget: QTabWidget):
-    widget, layout = create_QWidget("files_tab", QVBoxLayout)
-    parent_tabwidget.addTab(widget, "Files")
+    def setup_menubar(self):
 
-    groupbox, glayout = create_QGroupBox("files_tab", "Files")
-    layout.addWidget(groupbox)
-    state = ["file", "absent", "directory", "touch"]
-    recurse = ["yes", "no"]
-    # self.create_spacer(parent_layout)
-    state_combobox = create_QComboBox("state_combobox", state)
-    recurse_combobox = create_QComboBox("recurse_combobox", recurse)
-    path_lineedit = create_QLineEdit("path_lineedit", "/etc/hosts")
-    owner_lineedit = create_QLineEdit("owner_lineedit", "root")
-    group_lineedit = create_QLineEdit("group_lineedit", "root")
-    mode_lineedit = create_QLineEdit("mode_lineedit", "0744")
-    submit_button = create_QPushButton("file_submit_button", "Submit")
-    glayout.addRow("Path", path_lineedit)
-    glayout.addRow("State", state_combobox)
-    glayout.addRow("Recurse", recurse_combobox)
-    glayout.addRow("Owner", owner_lineedit)
-    glayout.addRow("Group", group_lineedit)
-    glayout.addRow("Mode", mode_lineedit)
-    glayout.addRow(submit_button)
+        self.qaction_importproject = create_QAction(self, "qaction_importproject", self.menu, "Import Project")
+        self.qaction_selectproject = create_QAction(self, "qaction_selectproject", self.menu, "Select Project")
+        self.qaction_inventory = create_QAction(self, "qaction_inventory", self.menu, "Inventory")
+        self.qaction_ping = create_QAction(self, "qaction_ping", self.menu, "Ping")
+
+    def setup_quickactions_tab(self, parent_tabwidget: QTabWidget):
+        widget, layout = create_QWidget("quickactions_tab", QVBoxLayout)
+        parent_tabwidget.addTab(widget, "Quick Actions")
+        # files
+        self.quickactions_files(layout)
+        # Commands
+        self.quickactions_shell(layout)
+        # Systemd
+        self.quickactions_systemd(layout)
+
+    def quickactions_files(self, parent_layout: QVBoxLayout):
+        quick_file_groupbox, quick_file_groupbox_layout = create_QGroupBox("quick_file", "Send / Fetch Files")
+        target_file = create_QLineEdit("target_file_lineedit", "/etc/fstab")
+
+        button_layout = create_QHBoxLayout("quick_file_btn_layout1")
+        fetch_file_btn = create_QPushButton("fetch_file_btn", "Fetch File")
+        send_file_button = create_QPushButton("send_file_btn", "Send File")
+        button_layout.addWidget(fetch_file_btn)
+        button_layout.addWidget(send_file_button)
+
+        quick_file_groupbox_layout.addRow("Target", target_file)
+        quick_file_groupbox_layout.addRow(button_layout)
+
+        parent_layout.addWidget(quick_file_groupbox)
+
+        self.send_file_button = send_file_button
+        self.fetch_file_button = fetch_file_btn
+        self.target_file_lineedit = target_file
+
+    def quickactions_shell(self, target_layout: QVBoxLayout):
+        groupbox, layout = create_QGroupBox("quick_shell", "Send Commands", QVBoxLayout)
+
+        quickshell_1 = create_QLineEdit("quickshell_1", "ls -la")
+        quickshell_2 = create_QLineEdit("quickshell_2", "df -h")
+        quickshell_3 = create_QLineEdit("quickshell_3", "uptime")
+        quickshell_run_button = create_QPushButton("quickshell_run_button", "Run")
+        layout.addWidget(quickshell_1)
+        layout.addWidget(quickshell_2)
+        layout.addWidget(quickshell_3)
+        layout.addWidget(quickshell_run_button)
+        target_layout.addWidget(groupbox)
+
+    def quickactions_systemd(self, target_layout: QVBoxLayout):
+        """
+        - `quick_systemd_groupbox`, `quick_systemd_groupbox_layout`
+
+        QLineEdit
+        - `quick_systemd_service`, `service_start`
+
+        QPushButton
+        - `quick_systemd_service_start`
+        - `quick_systemd_service_stop`
+        - `quick_systemd_service_restart`
+        - `quick_systemd_service_disable`
+        - `quick_systemd_service_enable`
+        - `quick_systemd_service_mask`
+        """
+        groupbox, layout = create_QGroupBox("quick_systemd", "Systemd", QVBoxLayout)
+        target_layout.addWidget(groupbox)
+        quick_systemd_service = create_QLineEdit("quick_systemd_service", "nginx")
+        layout.addWidget(quick_systemd_service)
+
+        button_layout = create_QHBoxLayout()
+        service_start = create_QPushButton("quick_systemd_service_start", "Start")
+        service_stop = create_QPushButton("quick_systemd_service_stop", "Stop")
+        service_restart = create_QPushButton("quick_systemd_service_restart", "Restart")
+        button_layout.addWidget(service_start)
+        button_layout.addWidget(service_stop)
+        button_layout.addWidget(service_restart)
+        layout.addLayout(button_layout)
+
+        button_layout = create_QHBoxLayout()
+        service_disable = create_QPushButton("quick_systemd_service_disable", "Disable")
+        service_enable = create_QPushButton("quick_systemd_service_enable", "Enable")
+        service_mask = create_QPushButton("quick_systemd_service_mask", "Mask")
+        button_layout.addWidget(service_disable)
+        button_layout.addWidget(service_enable)
+        button_layout.addWidget(service_mask)
+        layout.addLayout(button_layout)
+
+        return groupbox
+
+    def setup_files_tab(self, parent_tabwidget: QTabWidget):
+        widget, layout = create_QWidget("files_tab", QVBoxLayout)
+        parent_tabwidget.addTab(widget, "Files")
+
+        groupbox, glayout = create_QGroupBox("files_tab", "Files")
+        layout.addWidget(groupbox)
+        state = ["file", "absent", "directory", "touch"]
+        recurse = ["yes", "no"]
+        # self.create_spacer(parent_layout)
+        state_combobox = create_QComboBox("state_combobox", state)
+        recurse_combobox = create_QComboBox("recurse_combobox", recurse)
+        path_lineedit = create_QLineEdit("path_lineedit", "/etc/hosts")
+        owner_lineedit = create_QLineEdit("owner_lineedit", "root")
+        group_lineedit = create_QLineEdit("group_lineedit", "root")
+        mode_lineedit = create_QLineEdit("mode_lineedit", "0744")
+        submit_button = create_QPushButton("file_submit_button", "Submit")
+        glayout.addRow("Path", path_lineedit)
+        glayout.addRow("State", state_combobox)
+        glayout.addRow("Recurse", recurse_combobox)
+        glayout.addRow("Owner", owner_lineedit)
+        glayout.addRow("Group", group_lineedit)
+        glayout.addRow("Mode", mode_lineedit)
+        glayout.addRow(submit_button)
 
 
 # def setup_shell_tab(parent_tabwidget: QTabWidget):

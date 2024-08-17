@@ -1,6 +1,8 @@
+import os
+import shutil
 from typing import List
 
-from anvil.helpers import datautils, yamlmanager
+from anvil.helpers import datautils, filemanager, yamlmanager
 
 
 class Inventory:
@@ -34,6 +36,7 @@ class Inventory:
         def __init__(self, name: str):
             self.name = name
             self.vars = Inventory.VARS.copy()
+            self.storage_dir: str = ""
             self.configkey: str = ""
             self.member_of: List[Inventory.Group] = []
 
@@ -57,6 +60,8 @@ class Inventory:
 
         def __init__(self, name: str):
             self.name: str = name
+            self.storage_dir: str = ""
+            self.configkey: str = ""
             self.children: List[Inventory.Group] = []
             self.hosts: List[Inventory.Host] = []
             self.vars = Inventory.VARS.copy()
@@ -98,8 +103,9 @@ class Inventory:
         def __repr__(self) -> str:
             return self.name
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, project_dir: str):
         self.path = path
+        self.project_dir = project_dir
         self.hosts: List[Inventory.Host] = []
         self.host_names: List[str] = []
         self.groups: List[Inventory.Group] = []
@@ -116,7 +122,7 @@ class Inventory:
 
         # parse the groups
         for group_name, group_data in data.items():
-            group = self.add_group(group_name)
+            group, _ = self.add_group(group_name)
             group_data, _ = datautils.fix_dict(self.Group.empty, group_data)
 
             for key, value in group_data.items():
@@ -127,26 +133,30 @@ class Inventory:
 
                 # group members
                 if key == "hosts":
-                    for host, host_data in value.items():
-                        host, was_created = self.add_host(host, group_name)
+                    for host_name, host_data in value.items():
+                        host, was_created = self.add_host(host_name, group_name)
                         if was_created:
                             host.vars, _ = datautils.fix_dict(self.Host.empty, host_data)
 
         # Make sure all hosts are in the "all" group
         all_group = self.get_group("all")
-        all_group.hosts = self.hosts
+        if all_group is not None:
+            all_group.hosts = self.hosts
 
     def add_host(self, host_name: str, target_group: str = "all", update: bool = False) -> tuple[Host, bool]:
-        # TODO: add to "all" group
         was_created = False
         host = self.get_host(host_name)
         if host is None:
             host = self.Host(host_name)
             was_created = True
-
+        host.storage_dir = os.path.join(self.project_dir, "files", "hosts", host_name)
+        filemanager.check_dir(host.storage_dir, create=True)
         host.configkey = host_name
 
         group = self.get_group(target_group)
+        if group is None:
+            group, _ = self.add_group(target_group)
+
         if group.get_host(host_name) is None:
             group.hosts.append(host)
 
@@ -160,26 +170,22 @@ class Inventory:
             self.update_config()
         return host, was_created
 
-    def add_group(self, group_name: str, update: bool = False) -> Group:
-        """Add a group if it does not exist.
-
-        Arguments:
-            group_name -- name of group
-
-        Keyword Arguments:
-            update -- push changes to config file (default: {False})
-
-        Returns:
-            Group object
-        """
-        group = self.Group(group_name)
-        if group_name not in self.group_names:
+    def add_group(self, group_name: str, update: bool = False) -> tuple[Group, bool]:
+        was_created = False
+        group = self.get_group(group_name)
+        if group is None:
+            group = self.Group(group_name)
             self.groups.append(group)
             self.group_names.append(group_name)
+            was_created = True
+
+        group.storage_dir = os.path.join(self.project_dir, "files", "groups", group_name)
+        filemanager.check_dir(group.storage_dir, create=True)
+        group.configkey = group_name
 
         if update:
             self.update_config()
-        return group
+        return group, was_created
 
     def get_host(self, host_name: str):
         for host in self.hosts:
@@ -187,20 +193,16 @@ class Inventory:
                 return host
         return None
 
-    def get_group(self, group_name: str) -> Group:
-        """Get a group by name, or create it if it does not exist.
-
-        Arguments:
-            group_name -- Name of the group to get.
-
-        Returns:
-            Group -- The group object.
-        """
+    def get_group(self, group_name: str) -> Group | None:
         for group in self.groups:
             if group.name == group_name:
                 return group
-        group = self.add_group(group_name)
-        return group
+        return None
+
+    def add_host_to_group(self, host: Host, group: Group):
+        group.hosts.append(host)
+        host.member_of.append(group)
+        self.update_config()
 
     def delete_host(self, host: Host):
         for group in host.member_of:
@@ -209,6 +211,12 @@ class Inventory:
 
     def update_config(self):
         for group in self.groups:
+            if group.name != group.configkey:
+                new_dir = group.storage_dir.replace(f"/{group.configkey}", f"/{group.name}")
+                print(new_dir)
+                os.rename(group.storage_dir, new_dir)
+                group.storage_dir = new_dir
+                yamlmanager.delete(self.path, group.configkey)
             data = group.to_dict()
             for g, d in data.items():
                 yamlmanager.update(self.path, g, d)

@@ -108,13 +108,15 @@ class InventoryWindow(QWidget):
         available_groups = create_QComboBox("child_groups", [""])
         add_child_group = create_QPushButton("add_child_group", "Add Child")
         delete_child_group = create_QPushButton("delete_child_group", "Delete Child")
-        current_group_children = create_QListWidget("group_children")
+        group_child_groups = create_QListWidget("group_children")
 
         available_hosts = create_QComboBox("child_hosts", [""])
         add_child_host = create_QPushButton("add_child_host", "Add Host")
         delete_child_host = create_QPushButton("delete_child_host", "Delete Host")
-        # delete_child_host.clicked.connect(self.signal_delete_child_host)
-        current_host_children = create_QListWidget("group_hosts")
+        group_child_hosts = create_QListWidget("group_hosts")
+
+        add_child_host.clicked.connect(self.signal_add_child_host)
+        delete_child_host.clicked.connect(self.signal_remove_child_host)
 
         groupbox_layout.addRow("Name", target_group_name)
 
@@ -123,21 +125,21 @@ class InventoryWindow(QWidget):
         btn.addWidget(add_child_group)
         btn.addWidget(delete_child_group)
         groupbox_layout.addRow(btn)
-        groupbox_layout.addRow(current_group_children)
+        groupbox_layout.addRow(group_child_groups)
 
         groupbox_layout.addRow("Hosts", available_hosts)
         btn = create_QHBoxLayout()
         btn.addWidget(add_child_host)
         btn.addWidget(delete_child_host)
         groupbox_layout.addRow(btn)
-        groupbox_layout.addRow(current_host_children)
+        groupbox_layout.addRow(group_child_hosts)
 
         self.groupoptions = groupbox
         self.target_group_name = target_group_name
         self.available_groups = available_groups
         self.available_hosts = available_hosts
-        self.current_group_children = current_group_children
-        self.current_host_children = current_host_children
+        self.group_child_groups = group_child_groups
+        self.group_child_hosts = group_child_hosts
         return groupbox
 
     def section_variable_fields(self, form_src: dict):
@@ -174,7 +176,7 @@ class InventoryWindow(QWidget):
                 form_src = Inventory.VARS
             else:
                 form_src = host.vars
-            self.host = host
+                self.host = host
 
             self.populate_host_options(selected)
             self.section_variable_fields(form_src)
@@ -189,9 +191,13 @@ class InventoryWindow(QWidget):
 
             selected = self.selectgroup.currentText()
             group = self.projectinventory.get_group(selected)
-            self.group = group
+            if group is None:
+                form_src = Inventory.VARS
+            else:
+                form_src = group.vars
+                self.group = group
+
             self.populate_group_options(selected)
-            form_src = group.vars
             self.section_variable_fields(form_src)
 
     def populate_host_options(self, selecthost: str):
@@ -222,8 +228,8 @@ class InventoryWindow(QWidget):
             self.reject_button.setDisabled(False)
 
             self.target_group_name.setText(self.selectgroup.currentText())
-            self.current_group_children.clear()
-            self.current_host_children.clear()
+            self.group_child_groups.clear()
+            self.group_child_hosts.clear()
 
             # groups = []
             # for group in self.groups:
@@ -235,17 +241,19 @@ class InventoryWindow(QWidget):
             self.available_groups.addItem("NOT IMPLEMENTED")
 
             for child in self.group.children:
-                self.current_group_children.addItem(child.name)
+                self.group_child_groups.addItem(child.name)
                 self.available_groups.removeItem(self.available_groups.findText(child.name))
 
-            # hosts = []
-            # for host in self.hosts:
-            #     hosts.append(host.name)
+            hosts = []
+            for host in self.hosts:
+                hosts.append(host.name)
             self.available_hosts.clear()
-            self.available_hosts.addItem("NOT IMPLEMENTED")
+            self.available_hosts.addItems(hosts)
+            self.available_hosts.addItem("")
+            self.available_hosts.setCurrentIndex(-1)
 
             for host in self.group.hosts:
-                self.current_host_children.addItem(host.name)
+                self.group_child_hosts.addItem(host.name)
                 self.available_hosts.removeItem(self.available_hosts.findText(host.name))
 
     def signal_save_host(self):
@@ -270,11 +278,18 @@ class InventoryWindow(QWidget):
         groupname = self.selectgroup.currentText()
         group = self.projectinventory.get_group(groupname)
         if group is None:
-            return
+            group, _ = self.projectinventory.add_group(groupname)
 
         var_vals = self.variable_section.findChildren(QLineEdit)
         for var in var_vals:
             group.vars[var.objectName()] = var.text()
+
+        group.hosts.clear()
+        for i in range(self.group_child_hosts.count()):
+            hostname = self.group_child_hosts.item(i).text()
+            host = self.projectinventory.get_host(hostname)
+            if host is not None:
+                group.hosts.append(host)
 
         group.name = self.target_group_name.text().strip()
         self.projectinventory.update_config()
@@ -293,17 +308,26 @@ class InventoryWindow(QWidget):
                 self.manual = False
                 self.selecthost.removeItem(index)
 
-    # def signal_delete_child_host(self):
-    #     selected = self.current_host_children.currentItem().text()
-    #     host = self.projectinventory.get_host(selected)
-    #     self.group.hosts.remove(host)
-    #     self.current_host_children.takeItem(self.current_host_children.currentRow())
-    #     self.available_hosts.addItem(selected)
+    def signal_add_child_host(self):
+        selected = self.available_hosts.currentText()
+        self.group_child_hosts.addItem(selected)
+        self.manual = True
+        self.available_hosts.removeItem(self.available_hosts.findText(selected))
+        self.manual = False
+
+    def signal_remove_child_host(self):
+        selected = self.group_child_hosts.currentItem()
+        index = self.group_child_hosts.row(selected)
+        print(index)
+        self.group_child_hosts.takeItem(index)
+        self.manual = True
+        self.available_hosts.addItem(selected.text())
+        self.manual = False
 
     def clear_fields(self):
         self.target_host_name.setText("")
         self.ansible_host.setText("")
         self.target_group_name.setText("")
         self.available_groups.clear()
-        self.current_host_children.clear()
-        self.current_group_children.clear()
+        self.group_child_hosts.clear()
+        self.group_child_groups.clear()

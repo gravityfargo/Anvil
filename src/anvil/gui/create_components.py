@@ -1,4 +1,4 @@
-from typing import Callable, Type, TypeVar
+from typing import Type, TypeVar
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -28,6 +28,21 @@ from PySide6.QtWidgets import (
 
 T = TypeVar("T")
 AnyLayout = TypeVar("AnyLayout", QVBoxLayout, QHBoxLayout, QFormLayout)
+AnyWidget = TypeVar(
+    "AnyWidget",
+    QWidget,
+    QGroupBox,
+    QTabWidget,
+    QTreeView,
+    QListWidget,
+    QTextEdit,
+    QProgressBar,
+    QComboBox,
+    QLineEdit,
+    QPushButton,
+    QLabel,
+    QCheckBox,
+)
 
 
 def create_QComboBox(obj_name: str, options: list) -> QComboBox:
@@ -95,10 +110,10 @@ def create_QTextEdit(obj_name: str, setReadOnly: bool = False) -> QTextEdit:
     return textedit
 
 
-def create_QAction(parent: QWidget, parent_menu: QMenu | QMenuBar, text: str, connection: Callable) -> QAction:
+def create_QAction(parent: QWidget, obj_name: str, parent_menu: QMenu | QMenuBar, text: str) -> QAction:
     action = QAction(text, parent)
-    action.triggered.connect(connection)
     parent_menu.addAction(action)
+    action.setObjectName(obj_name)
     return action
 
 
@@ -186,13 +201,10 @@ def create_QTabWidget(obj_name: str, min_width: int = 0) -> QTabWidget:
     return tab_widget
 
 
-def create_QTreeView(obj_name: str, root_path: str = "") -> tuple[QTreeView, QFileSystemModel]:
+def create_QTreeView(obj_name: str) -> tuple[QTreeView, QFileSystemModel]:
     model = QFileSystemModel()
-    model.setRootPath(root_path)
-
     tree = QTreeView()
     tree.setModel(model)
-    tree.setRootIndex(model.index(root_path))
     tree.setColumnWidth(0, 300)
     tree.hideColumn(1)
     tree.hideColumn(2)

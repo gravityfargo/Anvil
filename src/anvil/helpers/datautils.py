@@ -12,9 +12,7 @@ def convert_bytes(size_in_bytes: int) -> str:
     return f"{size:.2f} {units[unit_index]}"
 
 
-def fix_dict(
-    reference_dict: dict, target_dict: dict, remove: bool = False
-) -> tuple[dict, bool]:
+def fix_dict(reference_dict: dict, target_dict: dict, remove: bool = False) -> tuple[dict, bool]:
     """Fix a dictionary to match a default dictionary.
 
     Make sure the target dictionary has all the keys of the default dictionary.
@@ -40,3 +38,9 @@ def fix_dict(
             ret_val = False
 
     return target_dict, ret_val
+
+
+def remove_empty_keys(d):
+    """Remove empty keys from a dictionary."""
+    cd = {k: v for k, v in d.items() if v}
+    return cd
