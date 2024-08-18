@@ -43,7 +43,7 @@ class InventoryWindow(QWidget):
         section_one_layout.addWidget(group_options)
 
         # Section two
-        self.section_variable_fields(Inventory.VARS)
+        self.section_variable_fields()
 
         self.setLayout(primary_layout)
 
@@ -75,7 +75,12 @@ class InventoryWindow(QWidget):
         btnbox = create_QHBoxLayout("inv_btnbox")
 
         self.action_button = create_QPushButton("action_button", "Save")
-        self.action_button.setDisabled(True)
+        self.action_button.clicked.connect(self.signal_save_host)
+        self.action_button.clicked.connect(self.signal_save_group)
+        # These connected functions requre an item with text to be selected in the
+        # host/group dropdowns. Both functions will be called, but only the one that
+        # corresponds to the selected item will have any effect. See the returns at the start
+        # of each function.
 
         self.reject_button = create_QPushButton("reject_button", "Delete")
         self.reject_button.setDisabled(True)
@@ -142,66 +147,64 @@ class InventoryWindow(QWidget):
         self.group_child_hosts = group_child_hosts
         return groupbox
 
-    def section_variable_fields(self, form_src: dict):
+    def section_variable_fields(self):
         groupbox, groupbox_layout = create_QGroupBox("variables", "Variables")
         self.variable_section = groupbox
-        self.action_button.setEnabled(True)
+
+        self.primary_layout.addWidget(groupbox)
 
         label_src = Inventory.VARS.keys()
         for label in label_src:
-            val = form_src.get(label, "")
 
             if label == "ansible_host":
-                self.ansible_host.setText(val)
                 continue
 
             lineedit = create_QLineEdit(label)
-            lineedit.setText(val)
             groupbox_layout.addRow(label, lineedit)
-        self.primary_layout.addWidget(groupbox)
 
     # Signals
 
     def signal_selecthost_changed(self):
         if not self.manual:
+            # reset the window
             self.manual = True
-            self.variable_section.deleteLater()
             self.clear_fields()
             self.selectgroup.setCurrentIndex(-1)
             self.manual = False
 
             selected = self.selecthost.currentText()
+            form_src = None
             host = self.projectinventory.get_host(selected)
-            if host is None:
-                form_src = Inventory.VARS
-            else:
-                form_src = host.vars
-                self.host = host
 
+            if host is not None:
+                form_src = host.vars
+
+            self.host = host
             self.populate_host_options(selected)
-            self.section_variable_fields(form_src)
+            self.populate_variable_fields(form_src)
 
     def signal_selectgroup_changed(self):
         if not self.manual:
+            # reset the window
             self.manual = True
-            self.variable_section.deleteLater()
             self.clear_fields()
             self.selecthost.setCurrentIndex(-1)
             self.manual = False
 
             selected = self.selectgroup.currentText()
+            form_src = None
             group = self.projectinventory.get_group(selected)
-            if group is None:
-                form_src = Inventory.VARS
-            else:
-                form_src = group.vars
-                self.group = group
 
+            if group is not None:
+                form_src = group.vars
+
+            self.group = group
             self.populate_group_options(selected)
-            self.section_variable_fields(form_src)
+            self.populate_variable_fields(form_src)
 
     def populate_host_options(self, selecthost: str):
-        self.action_button.clicked.connect(self.signal_save_host)
+        # self.action_button.clicked.connect(self.signal_save_host)
+        self.action_button.setEnabled(True)
         self.hostoptions_groupbox.setEnabled(True)
         self.groupoptions.setDisabled(True)
         if self.host is None:
@@ -217,9 +220,12 @@ class InventoryWindow(QWidget):
             self.ansible_host.setText(self.host.vars.get("ansible_host", ""))
 
     def populate_group_options(self, selectgroup: str):
-        self.action_button.clicked.connect(self.signal_save_group)
+        self.action_button.setEnabled(True)
         self.hostoptions_groupbox.setDisabled(True)
         self.groupoptions.setEnabled(True)
+        if self.group is None:
+            return
+
         if selectgroup == "New Group":
             self.action_button.setText("Create Group")
             self.reject_button.setDisabled(True)
@@ -230,12 +236,6 @@ class InventoryWindow(QWidget):
             self.target_group_name.setText(self.selectgroup.currentText())
             self.group_child_groups.clear()
             self.group_child_hosts.clear()
-
-            # groups = []
-            # for group in self.groups:
-            #     if group.name == "all":
-            #         continue
-            #     groups.append(group.name)
 
             self.available_groups.clear()
             self.available_groups.addItem("NOT IMPLEMENTED")
@@ -256,45 +256,69 @@ class InventoryWindow(QWidget):
                 self.group_child_hosts.addItem(host.name)
                 self.available_hosts.removeItem(self.available_hosts.findText(host.name))
 
+    def populate_variable_fields(self, form_src: dict | None):
+        if form_src is None:
+            form_src = Inventory.VARS
+
+        variable_line_edits = self.variable_section.findChildren(QLineEdit)
+        for line_edit in variable_line_edits:
+            object_name = line_edit.objectName()
+            value = form_src.get(object_name, "")
+
+            if object_name == "ansible_host":
+                self.ansible_host.setText(value)
+                continue
+
+            line_edit.setText(value)
+
     def signal_save_host(self):
         hostname = self.selecthost.currentText()
-        host = self.projectinventory.get_host(hostname)
-        if host is None:
-            host, _ = self.projectinventory.add_host(hostname)
+        if not hostname:
+            return
 
+        host, _ = self.projectinventory.add_host(hostname)
+
+        # update vars from form
         var_vals = self.variable_section.findChildren(QLineEdit)
         for var in var_vals:
-            if var.text():
-                host.vars[var.objectName()] = var.text()
+            host.vars[var.objectName()] = var.text()
 
         host.name = self.target_host_name.text().strip()
         host.vars["ansible_host"] = self.ansible_host.text().strip()
 
-        self.projectinventory.update_config()
-        index = self.selecthost.currentIndex()
-        self.selecthost.setItemText(index, host.name)
+        self.projectinventory.save_host(host)
+
+        # update/add to dropdown
+        self.manual = True
+        if hostname == "New Host":
+            self.selecthost.addItem(host.name)
+        else:
+            index = self.selecthost.currentIndex()
+            self.selecthost.setItemText(index, host.name)
+        self.manual = False
 
     def signal_save_group(self):
         groupname = self.selectgroup.currentText()
-        group = self.projectinventory.get_group(groupname)
-        if group is None:
-            group, _ = self.projectinventory.add_group(groupname)
+        if not groupname:
+            return
+        group, _ = self.projectinventory.add_group(groupname)
 
+        # update vars from form
         var_vals = self.variable_section.findChildren(QLineEdit)
         for var in var_vals:
             group.vars[var.objectName()] = var.text()
 
-        group.hosts.clear()
-        for i in range(self.group_child_hosts.count()):
-            hostname = self.group_child_hosts.item(i).text()
-            host = self.projectinventory.get_host(hostname)
-            if host is not None:
-                group.hosts.append(host)
-
         group.name = self.target_group_name.text().strip()
-        self.projectinventory.update_config()
-        index = self.selectgroup.currentIndex()
-        self.selectgroup.setItemText(index, group.name)
+        self.projectinventory.save_group(group)
+
+        # update/add to dropdown
+        self.manual = True
+        if groupname == "New Group":
+            self.selectgroup.addItem(group.name)
+        else:
+            index = self.selectgroup.currentIndex()
+            self.selectgroup.setItemText(index, group.name)
+        self.manual = False
 
     def signal_delete_item(self):
         if self.selectgroup.currentText():

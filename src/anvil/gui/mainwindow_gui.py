@@ -106,17 +106,18 @@ class MainWindow_UI(QWidget):
         quick_file_groupbox, quick_file_groupbox_layout = create_QGroupBox("quick_file", "Send / Fetch Files")
         target_file = create_QLineEdit("target_file_lineedit", "/etc/fstab")
 
-        button_layout = create_QHBoxLayout("quick_file_btn_layout1")
+        btnbox, button_layout = create_QWidget("quickactions_files_button_layout", QHBoxLayout)
         fetch_file_btn = create_QPushButton("fetch_file_btn", "Fetch File")
         send_file_button = create_QPushButton("send_file_btn", "Send File")
         button_layout.addWidget(fetch_file_btn)
         button_layout.addWidget(send_file_button)
 
         quick_file_groupbox_layout.addRow("Target", target_file)
-        quick_file_groupbox_layout.addRow(button_layout)
+        quick_file_groupbox_layout.addRow(btnbox)
 
         parent_layout.addWidget(quick_file_groupbox)
 
+        self.quickactions_files_buttons = btnbox
         self.send_file_button = send_file_button
         self.fetch_file_button = fetch_file_btn
         self.target_file_lineedit = target_file
@@ -133,6 +134,8 @@ class MainWindow_UI(QWidget):
         layout.addWidget(quickshell_3)
         layout.addWidget(quickshell_run_button)
         target_layout.addWidget(groupbox)
+
+        self.quickshell_run_button = quickshell_run_button
 
     def quickactions_systemd(self, target_layout: QVBoxLayout):
         """
@@ -154,23 +157,33 @@ class MainWindow_UI(QWidget):
         quick_systemd_service = create_QLineEdit("quick_systemd_service", "nginx")
         layout.addWidget(quick_systemd_service)
 
-        button_layout = create_QHBoxLayout()
-        service_start = create_QPushButton("quick_systemd_service_start", "Start")
-        service_stop = create_QPushButton("quick_systemd_service_stop", "Stop")
-        service_restart = create_QPushButton("quick_systemd_service_restart", "Restart")
+        btnbox1, button_layout = create_QWidget("quick_systemd_service_button_layout", QHBoxLayout)
+        service_start = create_QPushButton("button_service_start", "Start")
+        service_stop = create_QPushButton("button_service_stop", "Stop")
+        service_restart = create_QPushButton("button_service_restart", "Restart")
         button_layout.addWidget(service_start)
         button_layout.addWidget(service_stop)
         button_layout.addWidget(service_restart)
-        layout.addLayout(button_layout)
+        layout.addWidget(btnbox1)
 
-        button_layout = create_QHBoxLayout()
-        service_disable = create_QPushButton("quick_systemd_service_disable", "Disable")
-        service_enable = create_QPushButton("quick_systemd_service_enable", "Enable")
-        service_mask = create_QPushButton("quick_systemd_service_mask", "Mask")
+        btnbox2, button_layout = create_QWidget("quick_systemd_service_button_layout", QHBoxLayout)
+        service_disable = create_QPushButton("button_service_disable", "Disable")
+        service_enable = create_QPushButton("button_service_enable", "Enable")
+        service_mask = create_QPushButton("button_service_mask", "Mask")
         button_layout.addWidget(service_disable)
         button_layout.addWidget(service_enable)
         button_layout.addWidget(service_mask)
-        layout.addLayout(button_layout)
+        layout.addWidget(btnbox2)
+
+        self.button_service_start = service_start
+        self.button_service_stop = service_stop
+        self.button_service_restart = service_restart
+        self.button_service_disable = service_disable
+        self.button_service_enable = service_enable
+        self.button_service_mask = service_mask
+        self.quick_systemd_service = quick_systemd_service
+        self.quickactions_systemd_buttons1 = btnbox1
+        self.quickactions_systemd_buttons2 = btnbox2
 
         return groupbox
 

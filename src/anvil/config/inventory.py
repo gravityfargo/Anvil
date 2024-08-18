@@ -1,6 +1,5 @@
 import os
-import shutil
-from typing import List
+from typing import Any, Dict, List
 
 from anvil.helpers import datautils, filemanager, yamlmanager
 
@@ -48,9 +47,7 @@ class Inventory:
                 if val:
                     data[key] = val
 
-            return {
-                self.name: data,
-            }
+            return {self.name: data}
 
         def __repr__(self) -> str:
             return self.name
@@ -72,33 +69,41 @@ class Inventory:
                     return host
             return None
 
+        def add_host(self, host):
+            if host not in self.hosts:
+                self.hosts.append(host)
+
+                if self not in host.member_of:
+                    host.member_of.append(self)
+
         def to_dict(self):
-            group_dict = {
-                self.name: {
-                    "children": [],
-                    "hosts": {},
-                    "vars": {},
-                }
+            hosts_data: Dict[str, Any] = {}
+            vars_data: Dict[str, Any] = {}
+            # children_data: Dict[str, Any] = {}
+            all_data: Dict[str, Any] = {
+                "hosts": hosts_data,
+                "vars": vars_data,
             }
-            data = group_dict[self.name]
 
             for host in self.hosts:
-                group_hosts: dict = data["hosts"]
-                group_hosts.update(host.to_dict())
                 if self.name != "all":
-                    group_hosts[host.name] = {}
+                    # freeipa_clients:
+                    #   hosts:
+                    #     server_one:
+                    # hosts_data.append({host.name: {}})
+                    hosts_data[host.name] = {}
+                else:
+                    # all:
+                    #   hosts:
+                    #     server_one:
+                    #       ansible_host: 0.0.0.0
+                    hosts_data.update(host.to_dict())
 
-            for v, k in self.vars.items():
-                if k:
-                    data["vars"][v] = k
+            for key, val in self.vars.items():
+                if val:
+                    vars_data[key] = val
 
-            if not data["vars"]:
-                data.pop("vars")
-
-            if not data["children"]:
-                data.pop("children")
-
-            return group_dict
+            return {self.name: all_data}
 
         def __repr__(self) -> str:
             return self.name
@@ -134,17 +139,32 @@ class Inventory:
                 # group members
                 if key == "hosts":
                     for host_name, host_data in value.items():
-                        host, was_created = self.add_host(host_name, group_name)
+                        host, was_created = self.add_host(host_name)
                         if was_created:
                             host.vars, _ = datautils.fix_dict(self.Host.empty, host_data)
+                        group.add_host(host)
 
-        # Make sure all hosts are in the "all" group
-        all_group = self.get_group("all")
-        if all_group is not None:
-            all_group.hosts = self.hosts
+    def add_host(self, host_name: str) -> tuple[Host, bool]:
+        """Add a host to the inventory.
 
-    def add_host(self, host_name: str, target_group: str = "all", update: bool = False) -> tuple[Host, bool]:
+        - Trys to get the host from the inventory
+        - Creates a new host if it doesn't exist
+        - Adds the host to the "all" group.
+        - Creates a storage directory for the host
+
+        Arguments:
+            host_name -- Name of the host to add
+
+        Keyword Arguments:
+            target_group -- Group to add the host to (default: {"all"})
+
+        Returns:
+            tuple -- (object: Host, bool: was_created)
+        """
         was_created = False
+        if not host_name:
+            raise ValueError("Host name is required")
+
         host = self.get_host(host_name)
         if host is None:
             host = self.Host(host_name)
@@ -153,38 +173,35 @@ class Inventory:
         filemanager.check_dir(host.storage_dir, create=True)
         host.configkey = host_name
 
-        group = self.get_group(target_group)
+        group = self.get_group("all")
         if group is None:
-            group, _ = self.add_group(target_group)
+            raise ReferenceError("Group 'all' not found in inventory")
 
-        if group.get_host(host_name) is None:
-            group.hosts.append(host)
-
-        host.member_of.append(group)
+        group.add_host(host)
 
         if host_name not in self.host_names:
-            self.hosts.append(host)
             self.host_names.append(host_name)
 
-        if update:
-            self.update_config()
+        if host not in self.hosts:
+            self.hosts.append(host)
+
         return host, was_created
 
-    def add_group(self, group_name: str, update: bool = False) -> tuple[Group, bool]:
+    def add_group(self, group_name: str) -> tuple[Group, bool]:
         was_created = False
         group = self.get_group(group_name)
         if group is None:
             group = self.Group(group_name)
-            self.groups.append(group)
-            self.group_names.append(group_name)
+            if group not in self.groups:
+                self.groups.append(group)
+            if group_name not in self.group_names:
+                self.group_names.append(group_name)
             was_created = True
 
         group.storage_dir = os.path.join(self.project_dir, "files", "groups", group_name)
         filemanager.check_dir(group.storage_dir, create=True)
         group.configkey = group_name
 
-        if update:
-            self.update_config()
         return group, was_created
 
     def get_host(self, host_name: str):
@@ -199,24 +216,57 @@ class Inventory:
                 return group
         return None
 
-    def add_host_to_group(self, host: Host, group: Group):
-        group.hosts.append(host)
-        host.member_of.append(group)
-        self.update_config()
-
     def delete_host(self, host: Host):
         for group in host.member_of:
             group.hosts.remove(host)
         self.update_config()
 
     def update_config(self):
+        for host in self.hosts:
+            self.save_host(host)
         for group in self.groups:
-            if group.name != group.configkey:
-                new_dir = group.storage_dir.replace(f"/{group.configkey}", f"/{group.name}")
-                print(new_dir)
-                os.rename(group.storage_dir, new_dir)
-                group.storage_dir = new_dir
-                yamlmanager.delete(self.path, group.configkey)
-            data = group.to_dict()
-            for g, d in data.items():
-                yamlmanager.update(self.path, g, d)
+            self.save_group(group)
+        print("Inventory updated")
+
+    def save_group(self, group: Group):
+        group_data = group.to_dict()
+        if group.name != group.configkey:
+            yamlmanager.delete(self.path, group.configkey)
+
+            new_dir = group.storage_dir.replace(f"/{group.configkey}", f"/{group.name}")
+            os.rename(group.storage_dir, new_dir)
+
+            print(f"save_group: {group.configkey} -> {group.name}")
+            group.storage_dir = new_dir
+            group.configkey = group.name
+        yamlmanager.update(self.path, group.name, group_data[group.name])
+        print(f"save_group: {group.name}")
+
+    def save_host(self, host: Host):
+        """Save the host to the inventory config file.
+
+        Host variables are saved to their host entry in the
+        all group.
+
+        Arguments:
+            host -- Host object to save
+
+        Raises:
+            Exception: The "all" group is required in the inventory.
+        """
+        group = self.get_group("all")
+        if group is None:
+            raise ReferenceError("Group 'all' not found in inventory")
+        group_data = group.to_dict()
+
+        if host.name != host.configkey:
+            yamlmanager.delete(self.path, "all")
+
+            new_dir = host.storage_dir.replace(f"/{host.configkey}", f"/{host.name}")
+            os.rename(host.storage_dir, new_dir)
+
+            host.storage_dir = new_dir
+            host.configkey = host.name
+
+        yamlmanager.update(self.path, "all", group_data["all"])
+        print(f"save_host: {host.name}")

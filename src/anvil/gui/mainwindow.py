@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
 
-from anvil.ansible import PlayBuilder, Worker, WorkerSignals
+from anvil.ansible import PlayBuilder, SystemdService, Worker, WorkerSignals
 from anvil.config import Inventory, Project, ProjectData
 
 from .dialogs import ImportProjectDialog, SelectProjectDialog
@@ -37,6 +37,9 @@ class MainWindow(QMainWindow):
         ui.init_ui(self)
         self.ui = ui
 
+        self.inv_target = "all"
+        self.inv_target_type = "group"
+
         # Connect signals here for visibility
         # tree
         ui.tree.clicked.connect(self.signal_tree_clicked)
@@ -44,6 +47,7 @@ class MainWindow(QMainWindow):
         # lists
         ui.groups_list.clicked.connect(self.signal_groups_list_changed)
         ui.hosts_list.clicked.connect(self.signal_hosts_list_changed)
+        self.populate_lists()
         # qactions
         ui.qaction_importproject.triggered.connect(self.dialog_importproject)
         ui.qaction_selectproject.triggered.connect(self.dialog_selectproject)
@@ -51,6 +55,7 @@ class MainWindow(QMainWindow):
         ui.qaction_ping.triggered.connect(self.signal_ping)
         # buttons
         ui.send_file_button.clicked.connect(self.signal_send_file)
+        ui.button_service_start.clicked.connect(self.signal_quick_systemd)
 
     def signal_tree_clicked(self):
         ui = self.ui
@@ -76,8 +81,8 @@ class MainWindow(QMainWindow):
 
             target_type = relative_path[1]
             target_name = relative_path[2]
-            self.tree_selection_type = target_type
-            self.tree_selection_name = target_name
+            self.inv_target_type = target_type
+            self.inv_target = target_name
             if target_type == "hosts":
                 ui.hosts_list.findItems(target_name, Qt.MatchFlag.MatchExactly)[0].setSelected(True)
             elif target_type == "groups":
@@ -92,6 +97,9 @@ class MainWindow(QMainWindow):
                 ui.groups_list.clearSelection()
                 self.helper_expand_tree(host.storage_dir)
 
+            self.inv_target = choice
+            self.inv_target_type = "hosts"
+
     def signal_groups_list_changed(self):
         ui = self.ui
         if not self.manual:
@@ -101,21 +109,37 @@ class MainWindow(QMainWindow):
                 ui.hosts_list.clearSelection()
                 self.helper_expand_tree(group.storage_dir)
 
+            self.inv_target = choice
+            self.inv_target_type = "group"
+
     def signal_send_file(self):
+        self.helper_input_setEnabled(False)
         target_file = self.target_file_remote_path
         src_file = self.target_file_local_path
 
         play = PlayBuilder()
-        play.hosts.append(self.tree_selection_name)
+        play.hosts.append(self.inv_target)
         play.fetch(src_file, target_file)
         self.ansible_run(play)
 
     def signal_ping(self):
-        target_name, _ = self.helper_get_list_selection()
+        self.helper_input_setEnabled(False)
         play = PlayBuilder()
-        play.host_pattern = target_name
+        play.host_pattern = self.inv_target
         play.module("ping")
         self.ansible_run(play)
+
+    def signal_quick_systemd(self):
+        self.helper_input_setEnabled(False)
+        ui = self.ui
+        service_name = ui.quick_systemd_service.text()
+        service = SystemdService(service_name)
+        service.start()
+
+        play = PlayBuilder()
+        play.hosts.append(self.inv_target)
+        play.service(service)
+        print(play.get_run_args())
 
     def helper_expand_tree(self, item_path: str):
         ui = self.ui
@@ -149,23 +173,6 @@ class MainWindow(QMainWindow):
             ui.tree.setCurrentIndex(final_index)
             ui.tree.scrollTo(final_index)
 
-    def helper_get_list_selection(self) -> tuple[str, str]:
-        ui = self.ui
-        target_type = ""
-        if ui.hosts_list.selectedItems():
-            # print(ui.hosts_list.currentItem())
-            target_name = ui.hosts_list.currentItem().text()
-            target_type = "host"
-        elif ui.groups_list.selectedItems():
-            # print(ui.groups_list.currentItem())
-            target_name = ui.groups_list.currentItem().text()
-            target_type = "group"
-        else:
-            target_name = ""
-            target_type = ""
-
-        return target_name, target_type
-
     def helper_append_console(self, progress_data: dict):
         ui = self.ui
         color_map = {
@@ -198,6 +205,14 @@ class MainWindow(QMainWindow):
 
         ui.console.ensureCursorVisible()
 
+    def helper_input_setEnabled(self, toggle: bool):
+        ui = self.ui
+        ui.quickactions_files_buttons.setEnabled(toggle)
+        ui.quickactions_systemd_buttons1.setEnabled(toggle)
+        ui.quickactions_systemd_buttons2.setEnabled(toggle)
+        ui.quickshell_run_button.setEnabled(toggle)
+        ui.qaction_ping.setEnabled(toggle)
+
     def ansible_run(self, play: PlayBuilder):
         ui = self.ui
         worker = Worker(play, self.signals.progress)
@@ -207,9 +222,11 @@ class MainWindow(QMainWindow):
         self.thread_pool.start(worker)
 
     def ansible_complete(self, success):
-        ui = self.ui
-        ui.progress_bar.setRange(0, 100)
-        ui.progress_bar.reset()
+        if success:
+            ui = self.ui
+            ui.progress_bar.setRange(0, 100)
+            ui.progress_bar.reset()
+            self.helper_input_setEnabled(True)
 
     def populate_tree(self):
         ui = self.ui
