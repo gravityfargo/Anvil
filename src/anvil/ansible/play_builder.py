@@ -1,36 +1,10 @@
+import json
 from typing import Any, Dict
-
-
-class SystemdService:
-    # "reloaded"
-    # "restarted"
-    # "started"
-    # "stopped"
-
-    def __init__(self, service_name: str):
-        self.service_name = service_name
-
-        self.task_args = {
-            "name": service_name,
-        }
-
-        self.task = {
-            "name": f"Start {service_name}",
-            "ansible.builtin.systemd_service": self.task_args,
-        }
-
-    def start(self):
-        self.task_args["state"] = "started"
-
-    def __repr__(self):
-        return "systemd_service"
-
-    def export_task(self):
-        return self.task
 
 
 class PlayBuilder:
     private_data_dir: str = ""
+    gather_facts: bool = True
 
     def __init__(self):
         self.host_pattern: str = ""
@@ -38,7 +12,7 @@ class PlayBuilder:
         self.playbook = {
             "name": "Playbook",
             "hosts": self.hosts,
-            "gather_facts": True,
+            "gather_facts": self.gather_facts,
             "become": True,
             "tasks": [],
         }
@@ -56,31 +30,70 @@ class PlayBuilder:
         self.run_args["host_pattern"] = self.host_pattern
         self.run_args["module"] = module
 
-    def fetch(self, src_file: str, target_file: str):
+    def fetch(self, src: str, dest: str):
+        """
+        src = ui.target_file_lineedit.text()
+        dest = location of anvil instance
+        """
         task = {
-            "name": f"Fetch {src_file} from {self.hosts}",
+            "name": f"Fetching {src}",
             "ansible.builtin.fetch": {
-                "src": src_file,
-                "dest": target_file,
+                "src": src,
+                "dest": dest,
                 "flat": True,
             },
         }
         self.playbook["tasks"].append(task)
         self.run_args["playbook"] = self.playbook
 
-    def send(self, src_file: str, target_file: str):
+    def send(self, src: str, dest: str):
         task = {
-            "name": f"Send {src_file} to {self.hosts}",
+            "name": f"Sending {dest}",
             "ansible.builtin.copy": {
-                "src": src_file,
-                "dest": target_file,
+                "src": src,
+                "dest": dest,
             },
         }
         self.playbook["tasks"].append(task)
         self.run_args["playbook"] = self.playbook
 
-    def service(self, service: SystemdService):
+    def service(self, service_name: str, state: str, daemon_reload: bool = False):
         """Start, stop, or restart a service on the host/group."""
-        task = service.export_task()
+        task = {
+            "name": f"Setting service {service_name} to {state}",
+            "ansible.builtin.systemd_service": {
+                "state": state,
+                "name": service_name,
+            },
+        }
+        if daemon_reload:
+            task["ansible.builtin.systemd_service"]["daemon_reload"] = True
         self.playbook["tasks"].append(task)
         self.run_args["playbook"] = self.playbook
+
+    def shell(self, commands: list[str]):
+        for i, cmd in enumerate(commands):
+            task = {
+                "name": f"$ {cmd}",
+                "ansible.builtin.command": {
+                    "cmd": cmd,
+                },
+                "register": f"shell_out{i}",
+            }
+
+            self.playbook["tasks"].append(task)
+        self.run_args["playbook"] = self.playbook
+
+    def apt(self, package: str, state: str):
+        task = {
+            "name": f"Install {package}",
+            "ansible.builtin.apt": {
+                "name": package,
+                "state": state,
+            },
+        }
+        self.playbook["tasks"].append(task)
+        self.run_args["playbook"] = self.playbook
+
+    def print_json(self):
+        print(json.dumps(self.run_args, indent=2))

@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QTabWidget, QVBoxLayout,
 
 from .create_components import (
     create_QAction,
+    create_QCheckBox,
     create_QComboBox,
     create_QGroupBox,
     create_QHBoxLayout,
@@ -9,6 +10,7 @@ from .create_components import (
     create_QListWidget,
     create_QProgressBar,
     create_QPushButton,
+    create_QSpacerItem,
     create_QTabWidget,
     create_QTextEdit,
     create_QTreeView,
@@ -25,7 +27,12 @@ class MainWindow_UI(QWidget):
         MainWindow.setWindowTitle("Anvil")
 
         self.menu = MainWindow.menuBar()
-        widget, mainlayout = create_QWidget("main", QHBoxLayout)
+        widget, main_layout = create_QWidget("main", QVBoxLayout)
+        top_layout = create_QHBoxLayout("top_layout")
+        bottom_layout = create_QVBoxLayout("bottom_layout")
+        main_layout.addLayout(top_layout)
+        main_layout.addLayout(bottom_layout)
+
         MainWindow.setMinimumWidth(900)
         MainWindow.setCentralWidget(widget)
 
@@ -34,10 +41,10 @@ class MainWindow_UI(QWidget):
         section_three_layout = create_QVBoxLayout("section_two")
         section_four_layout = create_QVBoxLayout("section_four_layout")
 
-        mainlayout.addLayout(section_one_layout)
-        mainlayout.addLayout(section_two_layout)
-        mainlayout.addLayout(section_three_layout)
-        mainlayout.addLayout(section_four_layout)
+        top_layout.addLayout(section_one_layout)
+        top_layout.addLayout(section_two_layout)
+        top_layout.addLayout(section_three_layout)
+        bottom_layout.addLayout(section_four_layout)
 
         self.section_one(section_one_layout)
         self.section_two(section_two_layout)
@@ -72,6 +79,9 @@ class MainWindow_UI(QWidget):
 
         self.setup_quickactions_tab(section_two_tabs)
         # setup_files_tab(section_two_tabs)
+        self.gather_facts = create_QCheckBox("gather_facts", "Gather Facts?")
+        self.gather_facts.setChecked(True)
+        target_layout.addWidget(self.gather_facts)
 
     def section_four(self, parent_layout: QVBoxLayout):
         console = create_QTextEdit("console")
@@ -93,99 +103,116 @@ class MainWindow_UI(QWidget):
         self.qaction_ping = create_QAction(self, "qaction_ping", self.menu, "Ping")
 
     def setup_quickactions_tab(self, parent_tabwidget: QTabWidget):
-        widget, layout = create_QWidget("quickactions_tab", QVBoxLayout)
+        widget, layout = create_QWidget("quickactions_tab", QHBoxLayout)
+        left_layout = create_QVBoxLayout("left_layout")
+        right_layout = create_QVBoxLayout("right_layout")
+        layout.addLayout(left_layout)
+        layout.addLayout(right_layout)
+
         parent_tabwidget.addTab(widget, "Quick Actions")
+
         # files
-        self.quickactions_files(layout)
+        self.quickactions_files(left_layout)
         # Commands
-        self.quickactions_shell(layout)
+        self.quickactions_shell(left_layout)
         # Systemd
-        self.quickactions_systemd(layout)
+        self.quickactions_systemd(right_layout)
+        # apt
+        self.quickactions_apt(right_layout)
 
     def quickactions_files(self, parent_layout: QVBoxLayout):
-        quick_file_groupbox, quick_file_groupbox_layout = create_QGroupBox("quick_file", "Send / Fetch Files")
+        groupbox, layout = create_QGroupBox("quick_file", "Send / Fetch Files")
         target_file = create_QLineEdit("target_file_lineedit", "/etc/fstab")
+        spacer = create_QSpacerItem()
 
         btnbox, button_layout = create_QWidget("quickactions_files_button_layout", QHBoxLayout)
         fetch_file_btn = create_QPushButton("fetch_file_btn", "Fetch File")
         send_file_button = create_QPushButton("send_file_btn", "Send File")
+
         button_layout.addWidget(fetch_file_btn)
         button_layout.addWidget(send_file_button)
-
-        quick_file_groupbox_layout.addRow("Target", target_file)
-        quick_file_groupbox_layout.addRow(btnbox)
-
-        parent_layout.addWidget(quick_file_groupbox)
+        layout.addRow(target_file)
+        layout.addItem(spacer)
+        layout.addRow(btnbox)
+        parent_layout.addWidget(groupbox)
 
         self.quickactions_files_buttons = btnbox
         self.send_file_button = send_file_button
         self.fetch_file_button = fetch_file_btn
         self.target_file_lineedit = target_file
 
-    def quickactions_shell(self, target_layout: QVBoxLayout):
+    def quickactions_shell(self, parent_layout: QVBoxLayout):
         groupbox, layout = create_QGroupBox("quick_shell", "Send Commands", QVBoxLayout)
 
         quickshell_1 = create_QLineEdit("quickshell_1", "ls -la")
         quickshell_2 = create_QLineEdit("quickshell_2", "df -h")
         quickshell_3 = create_QLineEdit("quickshell_3", "uptime")
+        spacer = create_QSpacerItem()
         quickshell_run_button = create_QPushButton("quickshell_run_button", "Run")
+
         layout.addWidget(quickshell_1)
         layout.addWidget(quickshell_2)
         layout.addWidget(quickshell_3)
+        layout.addItem(spacer)
         layout.addWidget(quickshell_run_button)
-        target_layout.addWidget(groupbox)
+        parent_layout.addWidget(groupbox)
 
         self.quickshell_run_button = quickshell_run_button
+        self.quickshell_1 = quickshell_1
+        self.quickshell_2 = quickshell_2
+        self.quickshell_3 = quickshell_3
 
-    def quickactions_systemd(self, target_layout: QVBoxLayout):
-        """
-        - `quick_systemd_groupbox`, `quick_systemd_groupbox_layout`
-
-        QLineEdit
-        - `quick_systemd_service`, `service_start`
-
-        QPushButton
-        - `quick_systemd_service_start`
-        - `quick_systemd_service_stop`
-        - `quick_systemd_service_restart`
-        - `quick_systemd_service_disable`
-        - `quick_systemd_service_enable`
-        - `quick_systemd_service_mask`
-        """
+    def quickactions_systemd(self, parent_layout: QVBoxLayout):
         groupbox, layout = create_QGroupBox("quick_systemd", "Systemd", QVBoxLayout)
-        target_layout.addWidget(groupbox)
+        parent_layout.addWidget(groupbox)
         quick_systemd_service = create_QLineEdit("quick_systemd_service", "nginx")
-        layout.addWidget(quick_systemd_service)
+        spacer = create_QSpacerItem()
 
-        btnbox1, button_layout = create_QWidget("quick_systemd_service_button_layout", QHBoxLayout)
+        btnbox1, button_layout1 = create_QWidget("quick_systemd_service_button_layout", QHBoxLayout)
         service_start = create_QPushButton("button_service_start", "Start")
         service_stop = create_QPushButton("button_service_stop", "Stop")
-        service_restart = create_QPushButton("button_service_restart", "Restart")
-        button_layout.addWidget(service_start)
-        button_layout.addWidget(service_stop)
-        button_layout.addWidget(service_restart)
-        layout.addWidget(btnbox1)
 
-        btnbox2, button_layout = create_QWidget("quick_systemd_service_button_layout", QHBoxLayout)
-        service_disable = create_QPushButton("button_service_disable", "Disable")
-        service_enable = create_QPushButton("button_service_enable", "Enable")
-        service_mask = create_QPushButton("button_service_mask", "Mask")
-        button_layout.addWidget(service_disable)
-        button_layout.addWidget(service_enable)
-        button_layout.addWidget(service_mask)
+        btnbox2, button_layout2 = create_QWidget("quick_systemd_service_button_layout", QHBoxLayout)
+        service_restart = create_QPushButton("button_service_restart", "Restart")
+        service_status = create_QPushButton("button_service_status", "Status")
+
+        layout.addWidget(quick_systemd_service)
+        layout.addItem(spacer)
+        button_layout1.addWidget(service_start)
+        button_layout1.addWidget(service_stop)
+        button_layout2.addWidget(service_restart)
+        button_layout2.addWidget(service_status)
+        layout.addWidget(btnbox1)
         layout.addWidget(btnbox2)
+        parent_layout.addWidget(groupbox)
 
         self.button_service_start = service_start
         self.button_service_stop = service_stop
         self.button_service_restart = service_restart
-        self.button_service_disable = service_disable
-        self.button_service_enable = service_enable
-        self.button_service_mask = service_mask
+        self.button_service_status = service_status
         self.quick_systemd_service = quick_systemd_service
         self.quickactions_systemd_buttons1 = btnbox1
         self.quickactions_systemd_buttons2 = btnbox2
 
         return groupbox
+
+    def quickactions_apt(self, target_layout: QVBoxLayout):
+        groupbox, layout = create_QGroupBox("quick_apt", "Apt", QVBoxLayout)
+
+        quick_apt_package = create_QLineEdit("quick_apt_package", "nginx")
+        quick_apt_state = create_QComboBox("quick_apt_state", ["present", "latest", "absent"])
+        spacer = create_QSpacerItem()
+        apt_execute = create_QPushButton("apt_execute", "Execute")
+
+        layout.addWidget(quick_apt_package)
+        layout.addWidget(quick_apt_state)
+        layout.addItem(spacer)
+        layout.addWidget(apt_execute)
+        target_layout.addWidget(groupbox)
+
+        self.quick_apt_package = quick_apt_package
+        self.quick_apt_state = quick_apt_state
+        self.apt_execute = apt_execute
 
     def setup_files_tab(self, parent_tabwidget: QTabWidget):
         widget, layout = create_QWidget("files_tab", QVBoxLayout)

@@ -5,6 +5,7 @@ from PySide6.QtCore import SignalInstance
 
 from anvil.helpers import datautils
 
+from .parse_event import EventParser
 from .play_builder import PlayBuilder
 
 # from anvil.config import Project, ProjectData
@@ -28,8 +29,6 @@ def status_handler(status_data, runner_config):
 
 
 def event_handler(progress_callback):
-    adhoc = False
-    started = False
     badkeys = [
         "uuid",
         "play_uuid",
@@ -51,14 +50,12 @@ def event_handler(progress_callback):
 
     def handler(data):
         nonlocal badkeys
-        nonlocal adhoc
-        nonlocal started
-
-        pc = progress_callback
-        progress = {"text": "", "color": "black", "charformat": "text"}
 
         if data.get("event_data") is None:
             return
+
+        ep = EventParser(progress_callback)
+        ep.debug = False
 
         event = data["event"]
         event_data = datautils.remove_empty_keys(data["event_data"])
@@ -66,65 +63,109 @@ def event_handler(progress_callback):
         for key in badkeys:
             event_data.pop(key, None)
 
-        print(event)
-        print(json.dumps(event_data, indent=2))
+        if event_data["playbook"] == "__adhoc_playbook__":
+            match event:
+                case "runner_on_start":
+                    json_print = False
+                    if not EventParser.oneshot:
+                        EventParser.oneshot = True
+                        ep.text = event_data["resolved_action"]
+                        ep.color = "cyan"
+                        ep.charformat = "h3"
+                        ep.emit()
+
+                case "runner_on_ok":
+                    json_print = False
+                    if event_data["res"]["changed"]:
+                        ep.color = "yellow"
+                    else:
+                        ep.color = "green"
+                    ep.charformat = "h3"
+                    ep.skip_newline = True
+                    ep.text = "OK\t"
+                    ep.emit()
+                    ep.text = event_data["host"]
+                    ep.emit()
+
+        else:
+            ep.key = event
+            match event:
+                case "playbook_on_start":
+                    json_print = False
+                    ep.text = "Playbook Started"
+                    ep.color = "purple"
+                    ep.charformat = "h2"
+                    ep.emit()
+
+                case "playbook_on_task_start":
+                    json_print = False
+                    ep.text = event_data["name"]
+                    ep.emit()
+
+                case "runner_on_start":
+                    json_print = False
+
+                case "runner_on_ok":
+                    if event_data["task"] == "Gathering Facts":
+                        # OS type for package installation can be determined here
+                        return
+
+                    if event_data["task_action"] == "ansible.builtin.command":
+                        # I want to print the debug message, not just OK
+                        if event_data["res"]["stdout"]:
+                            ep.color = "green"
+                            ep.text = "Success"
+                            ep.emit()
+
+                            print(json.dumps(event_data, indent=2))
+
+                            if event_data["task"].startswith("$ systemctl"):
+                                ep.emit_systemctl(event_data["res"]["stdout_lines"])
+                                return
+
+                            ep.emit_stdout(event_data["res"]["stdout_lines"])
+
+                        if event_data["res"]["stderr"]:
+                            ep.emit(text="Failed", color="red")
+                            ep.emit_stderr(event_data["res"]["stderr_lines"])
+
+                    else:
+                        if event_data["res"]["changed"]:
+                            ep.color = "yellow"
+                        else:
+                            ep.color = "green"
+                        ep.charformat = "h3"
+                        ep.skip_newline = True
+                        ep.text = "OK\t"
+                        ep.emit()
+                        ep.text = event_data["host"]
+                        ep.emit()
+
+                case "runner_on_failed":
+                    ep.emit(text="Failed", color="red")
+
+                    if event_data["res"].get("msg") is not None:
+                        ep.emit(text=event_data["res"]["msg"])
+                    if event_data["res"]["stderr"]:
+                        ep.emit_stderr(event_data["res"]["stderr_lines"])
 
         match event:
-            case "playbook_on_start":
-                # progress["text"] = "Started"
-                # progress["color"] = "black"
-                # progress["charformat"] = "h1"
-
-                if data["event_data"]["playbook"] == "__adhoc_playbook__":
-                    progress["text"] = "Adhoc Playbook"
-                    progress["color"] = "purple"
-                    progress["charformat"] = "h2"
-                    adhoc = True
-
-            case "playbook_on_play_start":
-                # playbook
-                progress["text"] = "Playbook Started"
-                progress["color"] = "purple"
-                progress["charformat"] = "h2"
-                pc.emit(progress)
-                progress["color"] = "black"
-                progress["charformat"] = "h3"
-                progress["text"] = f"Target(s):\n\t{data["event_data"]["play_pattern"]}"
-
-            case "playbook_on_task_start":
-                # "task": "Gathering Facts",
-                progress["text"] = data["event_data"]["task"]
-                progress["color"] = "cyan"
-                progress["charformat"] = "h2"
-
-            case "runner_on_start":
-                # ping,
-                if adhoc:
-                    # "resolved_action": "ansible.builtin.ping",
-                    progress["text"] = data["event_data"]["resolved_action"]
-                    progress["color"] = "cyan"
-                    progress["charformat"] = "h3"
-                    pc.emit(progress)
-                    adhoc = False
-                progress["text"] = f"\t{data["event_data"]["host"]}"
-                progress["color"] = "black"
-                progress["charformat"] = "text"
-
             case "playbook_on_stats":
-                progress["text"] = "Finished"
-                pc.emit(progress)
-                progress["text"] = ""
+                ep.text = "Finished"
+                ep.emit()
 
-            # ERRORS
             case "runner_on_unreachable":
-                progress["text"] = "Host Unreachable!"
-                progress["color"] = "red"
-                progress["charformat"] = "h2"
-                # data["event_data"]["res"]["msg"]
+                ep.color = "red"
+                ep.text = "Unreachable"
+                ep.emit()
+                print(json.dumps(event_data, indent=2))
 
-        pc.emit(progress)
-
-
+        # if json_print:
+        #     print()
+        #     print(event)
+        # print(json.dumps(event_data, indent=2))
+        # else:
+        #
 
     return handler
     #     match event_data["event"]:

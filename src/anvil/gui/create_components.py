@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLayout,
     QLineEdit,
     QListWidget,
     QMenu,
@@ -83,13 +82,22 @@ def create_QCheckBox(obj_name: str, text: str) -> QCheckBox:
     return checkbox
 
 
-def create_QSpacerItem(layout_type: QLayout) -> QSpacerItem:
-    if isinstance(layout_type, QHBoxLayout):
+def create_QSpacerItem(layout_type: str = "v") -> QSpacerItem:
+    """Create a QSpacerItem that expands in the given direction.
+
+    Keyword Arguments:
+        layout_type -- v (vertical) or h (horizontal) (default: {"v"})
+
+    Returns:
+        QSpacerItem
+    """
+    h = QSizePolicy.Policy.Minimum
+    v = QSizePolicy.Policy.Expanding
+
+    if layout_type == "h":
         h = QSizePolicy.Policy.Expanding
         v = QSizePolicy.Policy.Minimum
-    else:
-        h = QSizePolicy.Policy.Minimum
-        v = QSizePolicy.Policy.Expanding
+
     spacer = QSpacerItem(1, 1, h, v)
     return spacer
 

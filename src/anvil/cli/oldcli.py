@@ -1,5 +1,5 @@
 import traceback, readline, sys
-from anvil.ansible import ping, playbook
+from anvil.ansible.ansibleold import ping, playbook
 from os import path
 import subprocess
 
@@ -89,9 +89,7 @@ def user_input_parser(ad: AnvilData, argument):
                             )
                             project_dir = input()
 
-                        ret_status = import_existing_project(
-                            ad, projectname, project_dir
-                        )
+                        ret_status = import_existing_project(ad, projectname, project_dir)
 
                         if ret_status == True:
 
@@ -183,26 +181,18 @@ def user_input_parser(ad: AnvilData, argument):
                     # fetch file
                     case "-fetch":
                         cc.check_len("-r-fetch", 2, argument)
-                        result = playbook(
-                            ad, "-r-fetch", argument[1], ad.s_group, ad.s_host
-                        )
+                        result = playbook(ad, "-r-fetch", argument[1], ad.s_group, ad.s_host)
                     # send file
                     case "-send":
                         cc.check_len("-r-send", 2, argument)
-                        result = playbook(
-                            ad, "-r-r-send", argument[1], ad.s_group, ad.s_host
-                        )
+                        result = playbook(ad, "-r-r-send", argument[1], ad.s_group, ad.s_host)
                     # restart service
                     case "-service-r":
                         cc.check_len("-r-service-r", 2, argument)
-                        result = playbook(
-                            ad, "-r-service-r", argument[1], ad.s_group, ad.s_host
-                        )
+                        result = playbook(ad, "-r-service-r", argument[1], ad.s_group, ad.s_host)
                     case "-file-create":
                         cc.check_len("-r-file-create", 2, argument)
-                        result = playbook(
-                            ad, "-r-file-create", argument[1], ad.s_group, ad.s_host
-                        )
+                        result = playbook(ad, "-r-file-create", argument[1], ad.s_group, ad.s_host)
                     case "-file-copy":
                         pass
 

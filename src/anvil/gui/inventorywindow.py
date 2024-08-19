@@ -308,6 +308,13 @@ class InventoryWindow(QWidget):
         for var in var_vals:
             group.vars[var.objectName()] = var.text()
 
+        # update hosts from form
+        for i in range(self.group_child_hosts.count()):
+            child = self.group_child_hosts.item(i)
+            host = self.projectinventory.get_host(child.text())
+            if host is not None:
+                group.add_host(host)
+
         group.name = self.target_group_name.text().strip()
         self.projectinventory.save_group(group)
 

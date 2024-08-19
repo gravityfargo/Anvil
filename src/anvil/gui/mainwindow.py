@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QThreadPool
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
 
-from anvil.ansible import PlayBuilder, SystemdService, Worker, WorkerSignals
+from anvil.ansible import PlayBuilder, Worker, WorkerSignals
 from anvil.config import Inventory, Project, ProjectData
 
 from .dialogs import ImportProjectDialog, SelectProjectDialog
@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        qdarktheme.setup_theme("light")
+        qdarktheme.setup_theme("dark")
         self.thread_pool = QThreadPool()
         self.signals = WorkerSignals()
         self.manual = False
@@ -55,7 +55,14 @@ class MainWindow(QMainWindow):
         ui.qaction_ping.triggered.connect(self.signal_ping)
         # buttons
         ui.send_file_button.clicked.connect(self.signal_send_file)
+        ui.fetch_file_button.clicked.connect(self.signal_fetch_file)
         ui.button_service_start.clicked.connect(self.signal_quick_systemd)
+        ui.button_service_stop.clicked.connect(self.signal_quick_systemd)
+        ui.button_service_restart.clicked.connect(self.signal_quick_systemd)
+        ui.button_service_status.clicked.connect(self.signal_quick_systemd)
+        ui.quickshell_run_button.clicked.connect(self.signal_quick_shell)
+        # check boxes
+        ui.gather_facts.stateChanged.connect(self.signal_gather_facts)
 
     def signal_tree_clicked(self):
         ui = self.ui
@@ -100,6 +107,10 @@ class MainWindow(QMainWindow):
             self.inv_target = choice
             self.inv_target_type = "hosts"
 
+    def signal_gather_facts(self):
+        ui = self.ui
+        PlayBuilder.gather_facts = ui.gather_facts.isChecked()
+
     def signal_groups_list_changed(self):
         ui = self.ui
         if not self.manual:
@@ -113,13 +124,33 @@ class MainWindow(QMainWindow):
             self.inv_target_type = "group"
 
     def signal_send_file(self):
+        """
+        Must pick file from the tree view!
+        """
         self.helper_input_setEnabled(False)
-        target_file = self.target_file_remote_path
-        src_file = self.target_file_local_path
+        dest = self.target_file_remote_path
+        src = self.target_file_local_path
 
         play = PlayBuilder()
         play.hosts.append(self.inv_target)
-        play.fetch(src_file, target_file)
+        play.send(src, dest)
+        self.ansible_run(play)
+
+    def signal_fetch_file(self):
+        # self.helper_input_setEnabled(False)
+        ui = self.ui
+        src = ui.target_file_lineedit.text()
+        target_type = self.inv_target_type
+        if target_type == "group":
+            target_type = "groups"
+
+        if self.inv_target == "all":
+            return
+
+        play = PlayBuilder()
+        play.hosts.append(self.inv_target)
+        dest = f"{self.files_path}/{target_type}/{self.inv_target}{src}"
+        play.fetch(src, dest)
         self.ansible_run(play)
 
     def signal_ping(self):
@@ -130,16 +161,39 @@ class MainWindow(QMainWindow):
         self.ansible_run(play)
 
     def signal_quick_systemd(self):
-        self.helper_input_setEnabled(False)
+        # self.helper_input_setEnabled(False)
         ui = self.ui
         service_name = ui.quick_systemd_service.text()
-        service = SystemdService(service_name)
-        service.start()
-
         play = PlayBuilder()
         play.hosts.append(self.inv_target)
-        play.service(service)
-        print(play.get_run_args())
+        match self.sender().objectName():
+            case "button_service_start":
+                play.service(service_name, "started")
+            case "button_service_stop":
+                play.service(service_name, "stopped")
+            case "button_service_restart":
+                play.service(service_name, "restarted", daemon_reload=True)
+            case "button_service_status":
+                play.shell(["systemctl status " + service_name])
+        self.ansible_run(play)
+
+    def signal_quick_shell(self):
+        self.helper_input_setEnabled(False)
+        ui = self.ui
+        play = PlayBuilder()
+        play.hosts.append(self.inv_target)
+        commands = []
+        text = ui.quickshell_1.text()
+        if text:
+            commands.append(text)
+        text = ui.quickshell_2.text()
+        if text:
+            commands.append(text)
+        text = ui.quickshell_3.text()
+        if text:
+            commands.append(text)
+        play.shell(commands)
+        self.ansible_run(play)
 
     def helper_expand_tree(self, item_path: str):
         ui = self.ui
@@ -173,7 +227,7 @@ class MainWindow(QMainWindow):
             ui.tree.setCurrentIndex(final_index)
             ui.tree.scrollTo(final_index)
 
-    def helper_append_console(self, progress_data: dict):
+    def helper_append_console(self, msg: dict):
         ui = self.ui
         color_map = {
             "red": QColor(192, 57, 43),
@@ -184,10 +238,10 @@ class MainWindow(QMainWindow):
             "gray": QColor(149, 165, 166),
             "black": QColor(23, 32, 42),
         }
-        color = color_map.get(progress_data["color"], QColor(0, 0, 0))
+        color = color_map.get(msg["color"], QColor(0, 0, 0))
 
         weight_map = {
-            "text": 300,
+            "text": 400,
             "h1": 900,
             "h2": 650,
             "h3": 500,
@@ -195,13 +249,15 @@ class MainWindow(QMainWindow):
 
         charformat = QTextCharFormat()
         charformat.setForeground(color)
-        charformat.setFontWeight(weight_map.get(progress_data["charformat"], 1))
+        charformat.setFontWeight(weight_map.get(msg["charformat"], 1))
 
         cursor = ui.console.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)  # Move the cursor to the end
 
-        cursor.insertText(progress_data["text"], charformat)
-        cursor.insertText("\n")
+        cursor.insertText(msg["text"], charformat)
+
+        if not msg["skip_newline"]:
+            cursor.insertText("\n")
 
         ui.console.ensureCursorVisible()
 
@@ -215,9 +271,9 @@ class MainWindow(QMainWindow):
 
     def ansible_run(self, play: PlayBuilder):
         ui = self.ui
-        worker = Worker(play, self.signals.progress)
+        worker = Worker(play, self.signals.message)
         worker.signals.finished.connect(self.ansible_complete)
-        worker.signals.progress.connect(self.helper_append_console)
+        worker.signals.message.connect(self.helper_append_console)
         ui.progress_bar.setRange(0, 0)
         self.thread_pool.start(worker)
 

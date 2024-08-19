@@ -226,7 +226,7 @@ class Inventory:
             self.save_host(host)
         for group in self.groups:
             self.save_group(group)
-        print("Inventory updated")
+        # print("Inventory updated")
 
     def save_group(self, group: Group):
         group_data = group.to_dict()
@@ -236,11 +236,10 @@ class Inventory:
             new_dir = group.storage_dir.replace(f"/{group.configkey}", f"/{group.name}")
             os.rename(group.storage_dir, new_dir)
 
-            print(f"save_group: {group.configkey} -> {group.name}")
             group.storage_dir = new_dir
             group.configkey = group.name
         yamlmanager.update(self.path, group.name, group_data[group.name])
-        print(f"save_group: {group.name}")
+        # print(f"save_group: {group.name}")
 
     def save_host(self, host: Host):
         """Save the host to the inventory config file.
@@ -269,4 +268,4 @@ class Inventory:
             host.configkey = host.name
 
         yamlmanager.update(self.path, "all", group_data["all"])
-        print(f"save_host: {host.name}")
+        # print(f"save_host: {host.name}")

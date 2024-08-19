@@ -5,7 +5,7 @@ from .ansible import anvilrun
 
 class WorkerSignals(QObject):
     finished = Signal(bool)
-    progress = Signal(dict)
+    message = Signal(dict)
 
 
 class Worker(QRunnable):
@@ -16,7 +16,7 @@ class Worker(QRunnable):
 
     def run(self):
         try:
-            anvilrun(self.play, self.signals.progress)
+            anvilrun(self.play, self.signals.message)
             self.signals.finished.emit(True)  # Emit finished signal with success=True
         except Exception as e:
             self.signals.finished.emit(False)  # Emit finished signal with success=False

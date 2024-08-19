@@ -1,53 +1,3 @@
-from ansible_runner import run
-import json , os
-
-
-
-def ping(ad: AnvilData, host_pattern: str):
-    r = run(
-        private_data_dir=ad.anvil_temp_dir,
-        inventory=ad.sp_inventory_file_path,
-        host_pattern=host_pattern,
-        module="ping",
-    )
-
-
-def create_task(task_template: dict, **kwargs):
-    task = task_template.copy()
-    task.update(kwargs)
-    return task
-
-
-def playbook(
-    ad: AnvilData,
-    sender_flag: str,
-    target,
-    group_name,
-    host_name,
-    **kwargs,
-):
-
-    match sender_flag:
-
-        case s if s.startswith("-r-service-"):
-            if host_name is None:
-                play["hosts"] = group_name
-
-            match s:
-                case "-r-service-s":
-                    task["name"] = f"Starting {target} on {host_name}"
-                    task[]["state"] = "started"
-                    stand_alone_command = f"./anvil.py -r-service-s {target}"
-                case "-r-service-r":
-                    task["name"] = f"Restarting {target} on {host_name}"
-                    task["ansible.builtin.systemd_service"]["state"] = "restarted"
-                    stand_alone_command = f"./anvil.py -r-service-r {target}"
-                case "-r-service-q":
-                    task["name"] = f"Stopping {target} on {host_name}"
-                    task["ansible.builtin.systemd_service"]["state"] = "stopped"
-                    stand_alone_command = f"./anvil.py -r-service-q {target}"
-            play["tasks"].append(task)
-
         case s if s.startswith("-r-file"):
             if host_name is None:
                 host_name = group_name
@@ -104,26 +54,6 @@ def playbook(
             stand_alone_command = f"./anvil.py -rc {target}"
             play["tasks"].append(task)
 
-        case "-r-shell":
-            if host_name is None:
-                play["hosts"] = group_name
-
-            i = 0
-            for c in target:
-                task = {
-                    "name": f"Running {c} on {host_name}",
-                    "ansible.builtin.shell": c,
-                    "register": f"shell_out{str(i)}",
-                }
-                play["tasks"].append(task)
-
-                debugtask = {
-                    "name": f"Output of {c}",
-                    "debug": {
-                        "var": f"shell_out{str(i)}.stdout_lines",
-                    },
-                }
-                play["tasks"].append(debugtask)
 
         case "-r-apt":
             pass
@@ -159,18 +89,3 @@ def playbook(
             play["tasks"].append(task)
 
     #
-
-
-
-
-
-
-
-
-def ad_hoc_shell(ad: AnvilData, host_pattern: str, command: str):
-    r = run(
-        private_data_dir=ad.anvil_temp_dir,
-        host_pattern=host_pattern,
-        module="shell",
-        module_args="whoami",
-    )
